@@ -94,25 +94,9 @@ def add_sample_api_keys():
         else:
             print("⚠ No YouTube API keys found in environment")
         
-        # Add external service API keys
-        external_services = {
-            'NOXINFLUENCER_API_KEY': 'noxinfluencer',
-            'CHANNELCRAWLER_API_KEY': 'channelcrawler'
-        }
-        
-        for env_var, service_name in external_services.items():
-            key = os.getenv(env_var)
-            if key:
-                existing = session.query(APIKey).filter_by(api_key=key).first()
-                if not existing:
-                    api_key = APIKey(
-                        key_name=f'{service_name}_key',
-                        api_key=key,
-                        service=service_name,
-                        quota_limit=1000
-                    )
-                    session.add(api_key)
-                    print(f"✓ Added {service_name} API key")
+        # External services note
+        print("ℹ️  Note: NOXINFLUENCER and CHANNELCRAWLER don't offer public APIs")
+        print("ℹ️  System will use web scraping and YouTube-native discovery instead")
         
         session.commit()
         session.close()
