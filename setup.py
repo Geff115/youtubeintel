@@ -39,9 +39,9 @@ def setup_database():
     
     # Wait for database to be ready
     max_retries = 30
-    for i in range(max_retries):
+            for i in range(max_retries):
         try:
-            DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/youtube_channels')
+            DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://youtube:youtube123@localhost:5432/youtube_channels')
             engine = create_engine(DATABASE_URL)
             
             with engine.connect() as conn:
@@ -64,8 +64,8 @@ def add_sample_api_keys():
         from dotenv import load_dotenv
         load_dotenv()
         
-        DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/youtube_channels')
-        engine = create_engine(DATABASE_URL)
+        DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://youtube:youtube123@localhost:5432/youtube_channels')
+        engine = create_engine(DATABASE_URL)engine(DATABASE_URL)
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         session = SessionLocal()
         
@@ -167,7 +167,7 @@ def check_services():
     
     # Check PostgreSQL
     try:
-        DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/youtube_channels')
+        DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://youtube:youtube123@localhost:5432/youtube_channels')
         engine = create_engine(DATABASE_URL)
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
