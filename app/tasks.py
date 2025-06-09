@@ -51,7 +51,7 @@ celery_app.conf.update(
 )
 
 # Database setup for Celery tasks
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://youtube:youtube123@localhost/youtube_channels?schema=public')
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost/youtube_channels')
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -448,7 +448,12 @@ def discover_related_channels(self, job_id, source_channel_ids=None, discovery_m
         for channel in channels:
             try:
                 # Use multiple discovery methods
-                methods = discovery_methods or ['related_channels', 'similar_content']
+                methods = discovery_methods or [
+                    'related_channels', 
+                    'similar_content', 
+                    'youtube_featured',
+                    'youtube_collaborations'
+                ]
                 
                 for method in methods:
                     try:
