@@ -5,15 +5,15 @@ services:
     image: postgres:15
     environment:
       POSTGRES_DB: youtube_channels
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: youtube
+      POSTGRES_PASSWORD: youtube123
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U youtube"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -31,7 +31,7 @@ services:
   app:
     build: .
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/youtube_channels
+      - DATABASE_URL=postgresql://youtube:youtube123@db:5432/youtube_channels
       - REDIS_URL=redis://redis:6379/0
       - FLASK_ENV=development
     ports:
@@ -49,7 +49,7 @@ services:
   celery_worker:
     build: .
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/youtube_channels
+      - DATABASE_URL=postgresql://youtube:youtube123@db:5432/youtube_channels
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       - db
@@ -62,7 +62,7 @@ services:
   celery_beat:
     build: .
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/youtube_channels
+      - DATABASE_URL=postgresql://youtube:youtube123@db:5432/youtube_channels
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       - db
