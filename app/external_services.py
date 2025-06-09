@@ -24,11 +24,7 @@ class ExternalChannelDiscovery:
     
     def setup_database(self):
         """Setup database connection for API key management"""
-        DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://youtube:youtube123@localhost/youtube_channels?schema=public')
-        if not DATABASE_URL:
-            raise ValueError("DATABASE_URL environment variable is not set")
-        logger.info(f"Connecting to database at {DATABASE_URL}")
-        # Create engine and session
+        DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost/youtube_channels')
         self.engine = create_engine(DATABASE_URL)
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
         self.db_session = SessionLocal()
@@ -53,8 +49,13 @@ class ExternalChannelDiscovery:
                 return self.discover_via_content_similarity(channel_id)
             elif method == 'noxinfluencer':
                 return self.discover_via_noxinfluencer(channel_id)
-            elif method == 'channelcrawler':
-                return self.discover_via_channelcrawler(channel_id)
+            elif method == 'youtube_featured':
+                return self.discover_via_youtube_featured_channels(channel_id)
+            elif method == 'youtube_collaborations':
+                return self.discover_via_youtube_collaborations(channel_id)
+            elif method == 'keyword_search':
+                # This requires additional context, so we'll get keywords from the channel first
+                return self.discover_via_smart_keyword_search(channel_id)
             else:
                 logger.warning(f"Unknown discovery method: {method}")
                 return []
@@ -140,56 +141,12 @@ class ExternalChannelDiscovery:
             return []
     
     def discover_via_noxinfluencer(self, channel_id: str) -> List[Dict]:
-        """Discover channels via NoxInfluencer API or scraping"""
+        """Discover channels via NoxInfluencer scraping only (no public API available)"""
         try:
-            # Check if we have API key for NoxInfluencer
-            api_key = self.get_api_key('noxinfluencer')
-            
-            if api_key:
-                return self.discover_via_noxinfluencer_api(channel_id, api_key)
-            else:
-                return self.discover_via_noxinfluencer_scraping(channel_id)
+            return self.discover_via_noxinfluencer_scraping(channel_id)
                 
         except Exception as e:
             logger.error(f"NoxInfluencer discovery failed for {channel_id}: {str(e)}")
-            return []
-    
-    def discover_via_noxinfluencer_api(self, channel_id: str, api_key: str) -> List[Dict]:
-        """Use NoxInfluencer API for channel discovery"""
-        try:
-            # This is a placeholder - implement actual NoxInfluencer API calls
-            # when you have access to their API documentation
-            url = f"https://api.noxinfluencer.com/v1/youtube/similar-channels"
-            
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-            
-            payload = {
-                'channel_id': channel_id,
-                'limit': 10
-            }
-            
-            response = self.session.post(url, json=payload, headers=headers, timeout=10)
-            response.raise_for_status()
-            
-            data = response.json()
-            similar_channels = []
-            
-            for channel in data.get('similar_channels', []):
-                similar_channels.append({
-                    'channel_id': channel['channel_id'],
-                    'title': channel.get('title', ''),
-                    'service': 'noxinfluencer_api',
-                    'confidence': channel.get('similarity_score', 0.5),
-                    'discovery_method': 'related_channels'
-                })
-            
-            return similar_channels
-            
-        except Exception as e:
-            logger.error(f"NoxInfluencer API discovery failed for {channel_id}: {str(e)}")
             return []
     
     def discover_via_noxinfluencer_scraping(self, channel_id: str) -> List[Dict]:
@@ -233,48 +190,14 @@ class ExternalChannelDiscovery:
             return []
     
     def discover_via_channelcrawler(self, channel_id: str) -> List[Dict]:
-        """Discover channels via ChannelCrawler service"""
+        """ChannelCrawler service doesn't have public API - use alternative methods"""
         try:
-            api_key = self.get_api_key('channelcrawler')
-            
-            if not api_key:
-                logger.warning("No API key available for ChannelCrawler")
-                return []
-            
-            # This is a placeholder for ChannelCrawler API
-            # Replace with actual API endpoint and parameters
-            url = "https://api.channelcrawler.com/v1/similar-channels"
-            
-            headers = {
-                'X-API-Key': api_key,
-                'Content-Type': 'application/json'
-            }
-            
-            payload = {
-                'channel_id': channel_id,
-                'max_results': 10
-            }
-            
-            response = self.session.post(url, json=payload, headers=headers, timeout=15)
-            response.raise_for_status()
-            
-            data = response.json()
-            similar_channels = []
-            
-            for channel in data.get('channels', []):
-                similar_channels.append({
-                    'channel_id': channel['id'],
-                    'title': channel.get('name', ''),
-                    'service': 'channelcrawler',
-                    'confidence': channel.get('score', 0.5),
-                    'discovery_method': 'similar_content'
-                })
-            
-            logger.info(f"ChannelCrawler found {len(similar_channels)} channels for {channel_id}")
-            return similar_channels
+            # Since ChannelCrawler doesn't offer public API, we'll use 
+            # YouTube's own featured channels and community tab
+            return self.discover_via_youtube_featured_channels(channel_id)
             
         except Exception as e:
-            logger.error(f"ChannelCrawler discovery failed for {channel_id}: {str(e)}")
+            logger.error(f"Alternative channel discovery failed for {channel_id}: {str(e)}")
             return []
     
     def discover_via_keyword_search(self, channel_id: str, keywords: List[str]) -> List[Dict]:
@@ -335,7 +258,195 @@ class ExternalChannelDiscovery:
         delay = delays.get(service_name, 2)
         time.sleep(delay)
     
-    def validate_external_service(self, service_name: str, api_key: str) -> bool:
+    def discover_via_youtube_featured_channels(self, channel_id: str) -> List[Dict]:
+        """Discover channels via YouTube's featured channels section"""
+        try:
+            from youtube_service import YouTubeService
+            youtube_service = YouTubeService()
+            
+            # Get featured channels using YouTube API
+            featured_channels = youtube_service.get_related_channels(channel_id)
+            
+            similar_channels = []
+            for featured_channel_id in featured_channels:
+                if featured_channel_id != channel_id:
+                    similar_channels.append({
+                        'channel_id': featured_channel_id,
+                        'title': '',  # Will be filled later
+                        'service': 'youtube_featured',
+                        'confidence': 0.8,  # High confidence for featured channels
+                        'discovery_method': 'youtube_featured'
+                    })
+            
+            logger.info(f"YouTube featured channels found {len(similar_channels)} channels for {channel_id}")
+            return similar_channels
+            
+        except Exception as e:
+            logger.error(f"YouTube featured channels discovery failed for {channel_id}: {str(e)}")
+            return []
+    
+    def discover_via_youtube_collaborations(self, channel_id: str) -> List[Dict]:
+        """Discover channels by analyzing video collaborations and mentions"""
+        try:
+            from youtube_service import YouTubeService
+            youtube_service = YouTubeService()
+            
+            # Get recent videos for the channel
+            videos = youtube_service.get_channel_videos(channel_id, max_results=20)
+            
+            collaboration_channels = []
+            channel_pattern = r'UC[a-zA-Z0-9_-]{22}'
+            
+            for video in videos:
+                # Look for channel mentions in video descriptions
+                description = video.get('description', '')
+                if description:
+                    # Find channel IDs in description
+                    found_channels = re.findall(channel_pattern, description)
+                    for found_channel_id in found_channels:
+                        if found_channel_id != channel_id:
+                            collaboration_channels.append({
+                                'channel_id': found_channel_id,
+                                'title': '',
+                                'service': 'youtube_collaboration',
+                                'confidence': 0.6,
+                                'discovery_method': 'youtube_collaborations',
+                                'source_video': video.get('video_id', '')
+                            })
+                
+                # Look for @mentions in titles and descriptions
+                mention_pattern = r'@([a-zA-Z0-9_-]+)'
+                text = f"{video.get('title', '')} {description}"
+                mentions = re.findall(mention_pattern, text)
+                
+                for mention in mentions:
+                    # Try to resolve @mention to channel ID
+                    try:
+                        resolved_channel_id = youtube_service.get_channel_by_username(mention)
+                        if resolved_channel_id and resolved_channel_id != channel_id:
+                            collaboration_channels.append({
+                                'channel_id': resolved_channel_id,
+                                'title': f'@{mention}',
+                                'service': 'youtube_mention',
+                                'confidence': 0.5,
+                                'discovery_method': 'youtube_collaborations',
+                                'source_video': video.get('video_id', '')
+                            })
+                    except:
+                        continue
+            
+            # Remove duplicates
+            unique_channels = {}
+            for channel in collaboration_channels:
+                channel_key = channel['channel_id']
+                if channel_key not in unique_channels:
+                    unique_channels[channel_key] = channel
+            
+            result = list(unique_channels.values())[:10]  # Limit to 10
+            logger.info(f"YouTube collaborations found {len(result)} channels for {channel_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"YouTube collaborations discovery failed for {channel_id}: {str(e)}")
+            return []
+    
+    def discover_via_smart_keyword_search(self, channel_id: str) -> List[Dict]:
+        """Discover channels using intelligent keyword search based on channel content"""
+        try:
+            # First, get channel metadata to extract keywords
+            session = self.get_db_session()
+            from models import Channel
+            
+            channel = session.query(Channel).filter_by(channel_id=channel_id).first()
+            if not channel:
+                logger.warning(f"Channel {channel_id} not found in database")
+                return []
+            
+            # Extract keywords from channel data
+            keywords = []
+            
+            # Use existing keywords if available
+            if channel.keywords:
+                keywords.extend(channel.keywords[:3])
+            
+            # Extract from description
+            if channel.description:
+                content_keywords = self.extract_smart_keywords(channel.description)
+                keywords.extend(content_keywords[:3])
+            
+            # Use topic categories
+            if channel.topic_categories:
+                # Convert topic URLs to searchable terms
+                for topic in channel.topic_categories[:2]:
+                    if '/m/' in topic:
+                        # Extract readable topic name from Google's topic URLs
+                        topic_name = topic.split('/')[-1].replace('_', ' ')
+                        keywords.append(topic_name)
+            
+            # Fallback: use channel title words
+            if not keywords and channel.title:
+                title_words = re.findall(r'\b[a-zA-Z]{4,}\b', channel.title.lower())
+                keywords.extend(title_words[:2])
+            
+            session.close()
+            
+            if not keywords:
+                logger.warning(f"No keywords found for channel {channel_id}")
+                return []
+            
+            # Search for channels using these keywords
+            return self.discover_via_keyword_search(channel_id, keywords[:3])
+            
+        except Exception as e:
+            logger.error(f"Smart keyword search failed for {channel_id}: {str(e)}")
+            return []
+    
+    def extract_smart_keywords(self, text: str) -> List[str]:
+        """Extract meaningful keywords from text using simple NLP"""
+        if not text:
+            return []
+        
+        # Clean and normalize text
+        text = re.sub(r'[^\w\s]', ' ', text.lower())
+        words = text.split()
+        
+        # Extended stop words
+        stop_words = {
+            'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+            'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before',
+            'after', 'above', 'below', 'is', 'are', 'was', 'were', 'be', 'been',
+            'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+            'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that',
+            'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they',
+            'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'its', 'our',
+            'their', 'myself', 'yourself', 'himself', 'herself', 'ourselves',
+            'themselves', 'what', 'which', 'who', 'when', 'where', 'why', 'how',
+            'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some',
+            'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than',
+            'too', 'very', 'just', 'now', 'here', 'there', 'then', 'once',
+            'youtube', 'channel', 'video', 'subscribe', 'like', 'comment',
+            'please', 'thanks', 'thank', 'welcome', 'new', 'latest', 'best'
+        }
+        
+        # Filter meaningful words
+        meaningful_words = []
+        for word in words:
+            if (len(word) > 3 and 
+                word not in stop_words and 
+                not word.isdigit() and 
+                word.isalpha()):
+                meaningful_words.append(word)
+        
+        # Count frequency and return most common
+        from collections import Counter
+        word_counts = Counter(meaningful_words)
+        
+        return [word for word, count in word_counts.most_common(8)]
+    
+    def get_db_session(self):
+        """Get a new database session"""
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        return SessionLocal()
         """Validate external service API key"""
         try:
             if service_name == 'noxinfluencer':
