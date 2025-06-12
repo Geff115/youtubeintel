@@ -5,7 +5,8 @@ from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
 
-db = SQLAlchemy()
+# Don't create db instance here. It will be created by app.py and imported.
+db = None
 
 class Channel(db.Model):
     __tablename__ = 'channels'
