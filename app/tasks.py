@@ -4,7 +4,12 @@ import os
 from datetime import datetime, timedelta
 import json
 import csv
-import mysql.connector
+try:
+    import mysql.connector
+    MYSQL_AVAILABLE = True
+except ImportError:
+    MYSQL_AVAILABLE = False
+    print("⚠️  MySQL connector not available - MySQL migration will be disabled")
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import uuid
@@ -14,7 +19,7 @@ import requests
 import time
 import random
 
-from models import db, Channel, Video, APIKey, ProcessingJob, ChannelDiscovery
+from models import Channel, Video, APIKey, ProcessingJob, ChannelDiscovery
 from youtube_service import YouTubeService
 from external_services import ExternalChannelDiscovery
 
@@ -103,6 +108,9 @@ def migrate_channel_data(self, job_id, source_type, source_path, batch_size=1000
 
 def migrate_from_mysql(session, connection_string, batch_size):
     """Migrate from MySQL database"""
+    if not MYSQL_AVAILABLE:
+        raise Exception("MySQL connector not available. Install with: pip install mysql-connector-python")
+    
     # Parse connection string
     # Format: mysql://user:password@host:port/database
     import re
