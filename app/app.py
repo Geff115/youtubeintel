@@ -5,13 +5,6 @@ import os
 from dotenv import load_dotenv
 import uuid
 from datetime import datetime
-from tasks import (
-    migrate_channel_data, 
-    fetch_channel_metadata, 
-    fetch_channel_videos,
-    discover_related_channels,
-    celery_app
-)
 
 load_dotenv()
 
@@ -25,8 +18,20 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-# Import models after db initialization
+# Import models after db initialization and set the db instance
+import models
+models.db = db
+
 from models import Channel, Video, APIKey, ProcessingJob, ChannelDiscovery
+
+# Import tasks after models are set up
+from tasks import (
+    migrate_channel_data, 
+    fetch_channel_metadata, 
+    fetch_channel_videos,
+    discover_related_channels,
+    celery_app
+)
 
 @app.route('/health', methods=['GET'])
 def health_check():
