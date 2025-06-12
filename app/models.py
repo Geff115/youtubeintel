@@ -1,12 +1,9 @@
-from flask_sqlalchemy import SQLAlchemy
+from database import db
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy import Column, String, Integer, BigInteger, Boolean, Text, DateTime, Float, Date, ForeignKey
 from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
-
-# Don't create db instance here. It will be created by app.py and imported.
-db = None
 
 class Channel(db.Model):
     __tablename__ = 'channels'
