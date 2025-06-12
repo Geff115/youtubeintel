@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Local Development Startup Script
-echo "🚀 Starting YouTube Channel Aggregator (Local Mode)"
-echo "=================================================="
+# Simple Local Development Startup Script
+echo "🚀 Starting YouTube Channel Aggregator (Simple Mode)"
+echo "===================================================="
 
 # Check if we're in the right directory
 if [ ! -f "app/app.py" ]; then
@@ -24,66 +24,45 @@ if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 else
     echo "❌ .env file not found"
-    echo "💡 Run ./local_setup.sh first"
     exit 1
 fi
 
-# Check if API keys are configured
-if [[ "$YOUTUBE_API_KEY_1" == "your-youtube-api-key-1" ]] || [[ -z "$YOUTUBE_API_KEY_1" ]]; then
-    echo "⚠️  YouTube API keys not configured in .env file"
-    echo "💡 Please edit .env file with your actual YouTube API keys"
-    exit 1
-fi
+# Quick connection tests
+echo "🔍 Testing connections..."
 
-# Check PostgreSQL connection
-echo "🔍 Checking PostgreSQL connection..."
+# Test PostgreSQL
 if python -c "
 import psycopg2
 import os
 try:
     conn = psycopg2.connect(os.getenv('DATABASE_URL'))
     conn.close()
-    print('✅ PostgreSQL connection successful')
+    print('✅ PostgreSQL: OK')
 except Exception as e:
-    print(f'❌ PostgreSQL connection failed: {e}')
+    print(f'❌ PostgreSQL: {e}')
     exit(1)
 " 2>/dev/null; then
     echo "✅ Database connection verified"
 else
     echo "❌ Database connection failed"
-    echo "💡 Make sure PostgreSQL is running and database is set up"
-    echo "   Run ./local_setup.sh to set up the database"
     exit 1
 fi
 
-# Check Redis connection
-echo "🔍 Checking Redis connection..."
+# Test Redis
 if python -c "
 import redis
 import os
 try:
     r = redis.from_url(os.getenv('REDIS_URL'))
     r.ping()
-    print('✅ Redis connection successful')
+    print('✅ Redis: OK')
 except Exception as e:
-    print(f'❌ Redis connection failed: {e}')
+    print(f'❌ Redis: {e}')
     exit(1)
 " 2>/dev/null; then
     echo "✅ Redis connection verified"
 else
     echo "❌ Redis connection failed"
-    echo "💡 Make sure Redis is running:"
-    echo "   redis-server  # Start Redis server"
-    exit 1
-fi
-
-# Initialize system if needed
-echo "🔧 Initializing system..."
-cd app
-if python setup.py; then
-    echo "✅ System initialization completed"
-else
-    echo "❌ System initialization failed"
     exit 1
 fi
 
@@ -99,34 +78,27 @@ cleanup() {
         kill $CELERY_PID
         echo "✅ Celery worker stopped"
     fi
-    if [ ! -z "$BEAT_PID" ] && kill -0 $BEAT_PID 2>/dev/null; then
-        kill $BEAT_PID
-        echo "✅ Celery beat stopped"
-    fi
     echo "👋 Goodbye!"
 }
 
 # Set up signal handlers
 trap cleanup EXIT INT TERM
 
+# Change to app directory
+cd app
+
 # Start Celery worker in background
 echo "🔄 Starting Celery worker..."
-celery -A tasks worker --loglevel=info --concurrency=2 &
+celery -A tasks worker --loglevel=info --concurrency=2 > ../celery.log 2>&1 &
 CELERY_PID=$!
 echo "✅ Celery worker started (PID: $CELERY_PID)"
-
-# Start Celery beat in background
-echo "⏰ Starting Celery beat scheduler..."
-celery -A tasks beat --loglevel=info &
-BEAT_PID=$!
-echo "✅ Celery beat started (PID: $BEAT_PID)"
 
 # Give Celery a moment to start
 sleep 3
 
 # Start Flask application
 echo "🌐 Starting Flask application..."
-python app.py &
+python app.py > ../flask.log 2>&1 &
 FLASK_PID=$!
 echo "✅ Flask app started (PID: $FLASK_PID)"
 
@@ -138,13 +110,16 @@ echo "🏥 Performing health check..."
 if curl -f http://localhost:5000/health > /dev/null 2>&1; then
     echo "✅ Application is healthy and ready!"
 else
-    echo "⚠️  Health check failed, but services are running"
-    echo "💡 Check if Flask app started correctly"
+    echo "⚠️  Health check failed, checking logs..."
+    echo "Flask logs:"
+    tail -10 ../flask.log
+    echo "Celery logs:"
+    tail -10 ../celery.log
 fi
 
 echo ""
-echo "🎉 All services are running!"
-echo "============================"
+echo "🎉 Services are running!"
+echo "======================="
 echo ""
 echo "🌐 Available endpoints:"
 echo "   Health:     http://localhost:5000/health"
@@ -155,11 +130,17 @@ echo ""
 echo "📊 Service Status:"
 echo "   Flask App:      Running (PID: $FLASK_PID)"
 echo "   Celery Worker:  Running (PID: $CELERY_PID)"
-echo "   Celery Beat:    Running (PID: $BEAT_PID)"
+echo ""
+echo "📝 Log files:"
+echo "   Flask:  flask.log"
+echo "   Celery: celery.log"
 echo ""
 echo "🔧 Quick test commands:"
 echo "   # Check stats"
 echo "   curl http://localhost:5000/api/stats"
+echo ""
+echo "   # List API keys"
+echo "   curl http://localhost:5000/api/api-keys"
 echo ""
 echo "   # Fetch metadata for sample channels"
 echo "   curl -X POST http://localhost:5000/api/fetch-metadata \\"

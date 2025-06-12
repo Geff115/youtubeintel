@@ -1,0 +1,48 @@
+ 
+ -------------- celery@DESKTOP-UHLI6AM v5.3.1 (emerald-rush)
+--- ***** ----- 
+-- ******* ---- Linux-5.10.102.1-microsoft-standard-WSL2-x86_64-with-glibc2.35 2025-06-12 06:01:35
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         youtube_processor:0x7fb85827cb50
+- ** ---------- .> transport:   redis://localhost:6379/0
+- ** ---------- .> results:     redis://localhost:6379/0
+- *** --- * --- .> concurrency: 2 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+                
+
+[tasks]
+  . tasks.cleanup_old_jobs
+  . tasks.discover_related_channels
+  . tasks.fetch_channel_metadata
+  . tasks.fetch_channel_videos
+  . tasks.migrate_channel_data
+  . tasks.reset_api_quotas
+
+[2025-06-12 06:01:35,150: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+whether broker connection retries are made during startup in Celery 6.0 and above.
+If you wish to retain the existing behavior for retrying connections on startup,
+you should set broker_connection_retry_on_startup to True.
+  warnings.warn(
+
+[2025-06-12 06:01:35,162: INFO/MainProcess] Connected to redis://localhost:6379/0
+[2025-06-12 06:01:35,164: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+whether broker connection retries are made during startup in Celery 6.0 and above.
+If you wish to retain the existing behavior for retrying connections on startup,
+you should set broker_connection_retry_on_startup to True.
+  warnings.warn(
+
+[2025-06-12 06:01:35,169: INFO/MainProcess] mingle: searching for neighbors
+[2025-06-12 06:01:36,180: INFO/MainProcess] mingle: all alone
+[2025-06-12 06:01:36,193: INFO/MainProcess] celery@DESKTOP-UHLI6AM ready.
+
+worker: Hitting Ctrl+C again will terminate all running tasks!
+
+worker: Warm shutdown (MainProcess)
+
+worker: Warm shutdown (MainProcess)
+
+worker: Warm shutdown (MainProcess)

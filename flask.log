@@ -1,0 +1,45 @@
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.27.25.191:5000
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:werkzeug: * Restarting with stat
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 139-729-948
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 06:01:42] "GET /health HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 06:02:05] "GET /health HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 06:02:27] "[35m[1mGET /api/stats HTTP/1.1[0m" 500 -
+Traceback (most recent call last):
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/flask/app.py", line 2213, in __call__
+    return self.wsgi_app(environ, start_response)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/flask/app.py", line 2193, in wsgi_app
+    response = self.handle_exception(e)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/flask/app.py", line 2190, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/flask/app.py", line 1486, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/flask/app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/flask/app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "/home/gabriel/youtube-channel-aggregator/app/app.py", line 44, in get_stats
+    'total_channels': Channel.query.count(),
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/sqlalchemy/orm/query.py", line 3131, in count
+    self._legacy_from_self(col).enable_eagerloads(False).scalar()
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/sqlalchemy/orm/query.py", line 2824, in scalar
+    ret = self.one()
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/sqlalchemy/orm/query.py", line 2797, in one
+    return self._iter().one()  # type: ignore
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/sqlalchemy/orm/query.py", line 2846, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2246, in execute
+    return self._execute_internal(
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2129, in _execute_internal
+    bind = self.get_bind(**bind_arguments)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/flask_sqlalchemy/session.py", line 53, in get_bind
+    engines = self._db.engines
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/flask_sqlalchemy/extension.py", line 642, in engines
+    raise RuntimeError(
+RuntimeError: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?
