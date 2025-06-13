@@ -2,10 +2,10 @@
  
  -------------- celery@DESKTOP-UHLI6AM v5.3.1 (emerald-rush)
 --- ***** ----- 
--- ******* ---- Linux-5.10.102.1-microsoft-standard-WSL2-x86_64-with-glibc2.35 2025-06-12 18:59:41
+-- ******* ---- Linux-5.10.102.1-microsoft-standard-WSL2-x86_64-with-glibc2.35 2025-06-13 09:08:15
 - *** --- * --- 
 - ** ---------- [config]
-- ** ---------- .> app:         youtube_processor:0x7f2a1845e650
+- ** ---------- .> app:         youtube_processor:0x7f4e80238460
 - ** ---------- .> transport:   redis://localhost:6379/0
 - ** ---------- .> results:     redis://localhost:6379/0
 - *** --- * --- .> concurrency: 4 (prefork)
@@ -27,185 +27,52 @@
   . tasks.monitor_system_health
   . tasks.reset_api_quotas
 
-[2025-06-12 18:59:41,382: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+[2025-06-13 09:08:15,460: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
 whether broker connection retries are made during startup in Celery 6.0 and above.
 If you wish to retain the existing behavior for retrying connections on startup,
 you should set broker_connection_retry_on_startup to True.
   warnings.warn(
 
-[2025-06-12 18:59:41,389: INFO/MainProcess] Connected to redis://localhost:6379/0
-[2025-06-12 18:59:41,389: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+[2025-06-13 09:08:15,470: INFO/MainProcess] Connected to redis://localhost:6379/0
+[2025-06-13 09:08:15,471: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
 whether broker connection retries are made during startup in Celery 6.0 and above.
 If you wish to retain the existing behavior for retrying connections on startup,
 you should set broker_connection_retry_on_startup to True.
   warnings.warn(
 
-[2025-06-12 18:59:41,393: INFO/MainProcess] mingle: searching for neighbors
-[2025-06-12 18:59:42,404: INFO/MainProcess] mingle: all alone
-[2025-06-12 18:59:42,434: INFO/MainProcess] celery@DESKTOP-UHLI6AM ready.
-[2025-06-12 19:02:31,161: INFO/MainProcess] Task tasks.batch_process_channels[ccd4ff63-f8f4-4759-a729-a8a9879c074c] received
-[2025-06-12 19:02:31,215: INFO/ForkPoolWorker-4] Starting batch processing: metadata with batch size 100
-[2025-06-12 19:02:31,228: INFO/ForkPoolWorker-4] Processing batch 1: 5 channels
-[2025-06-12 19:02:31,233: INFO/ForkPoolWorker-4] Connecting to database: postgresql://youtube:youtube123@localhost:5432/youtube_channels
-[2025-06-12 19:02:31,258: INFO/ForkPoolWorker-4] file_cache is only supported with oauth2client<4.0.0
-[2025-06-12 19:02:31,263: INFO/ForkPoolWorker-4] Using YouTube API key: youtube_key_2
-[2025-06-12 19:02:32,057: WARNING/ForkPoolWorker-4] No data found for channel ID: UCsgp0TTPJdAqkaGMqq-HJ9w
-[2025-06-12 19:02:34,424: INFO/ForkPoolWorker-4] Batch 1 completed. Progress: 5/5 (100.0%)
-[2025-06-12 19:02:37,296: INFO/ForkPoolWorker-4] Batch processing completed: 5 channels processed
-[2025-06-12 19:02:37,302: INFO/ForkPoolWorker-4] Task tasks.batch_process_channels[ccd4ff63-f8f4-4759-a729-a8a9879c074c] succeeded in 6.138646499999595s: {'status': 'completed', 'total_processed': 5, 'batches_completed': 1}
-[2025-06-12 19:07:22,653: INFO/MainProcess] Task tasks.batch_process_channels[8c806cec-3f30-4171-9825-0ae178a08685] received
-[2025-06-12 19:07:22,660: INFO/ForkPoolWorker-4] Starting batch processing: metadata with batch size 2000
-[2025-06-12 19:07:22,668: INFO/ForkPoolWorker-4] Processing batch 1: 4 channels
-[2025-06-12 19:07:22,670: INFO/ForkPoolWorker-4] Connecting to database: postgresql://youtube:youtube123@localhost:5432/youtube_channels
-[2025-06-12 19:07:22,698: INFO/ForkPoolWorker-4] file_cache is only supported with oauth2client<4.0.0
-[2025-06-12 19:07:22,701: INFO/ForkPoolWorker-4] Using YouTube API key: youtube_key_3
-[2025-06-12 19:07:26,151: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:07:26,151: INFO/ForkPoolWorker-4] Server error, retrying in 2.48 seconds...
-[2025-06-12 19:07:29,592: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:07:29,592: INFO/ForkPoolWorker-4] Server error, retrying in 4.21 seconds...
-[2025-06-12 19:07:39,051: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:07:39,052: ERROR/ForkPoolWorker-4] Failed to get metadata for channel UCsgp0TTPJdAqkaGMqq-HJ9w: <HttpError 503 when requesting https://youtube.googleapis.com/youtube/v3/channels?part=snippet%2Cstatistics%2CbrandingSettings%2Cstatus%2CtopicDetails&id=UCsgp0TTPJdAqkaGMqq-HJ9w&key=AIzaSyAKU5EN-KqfYiBgSRbYlJtzyq5KxSaS5G4&alt=json returned "Visibility check was unavailable. Please retry the request and contact support if the problem persists". Details: "[{'message': 'Visibility check was unavailable. Please retry the request and contact support if the problem persists', 'domain': 'global', 'reason': 'backendError'}]">
-[2025-06-12 19:07:44,337: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:07:44,338: INFO/ForkPoolWorker-4] Server error, retrying in 2.49 seconds...
-[2025-06-12 19:07:52,057: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:07:52,057: INFO/ForkPoolWorker-4] Server error, retrying in 4.26 seconds...
-[2025-06-12 19:07:53,004: INFO/MainProcess] Task tasks.batch_process_channels[b82ee2a6-c358-4700-9e0f-55b97d5e2291] received
-[2025-06-12 19:07:53,068: INFO/ForkPoolWorker-2] Starting batch processing: videos with batch size 500
-[2025-06-12 19:07:53,090: INFO/ForkPoolWorker-2] Processing batch 1: 5 channels
-[2025-06-12 19:07:53,094: INFO/ForkPoolWorker-2] Connecting to database: postgresql://youtube:youtube123@localhost:5432/youtube_channels
-[2025-06-12 19:07:53,126: INFO/ForkPoolWorker-2] file_cache is only supported with oauth2client<4.0.0
-[2025-06-12 19:07:53,131: INFO/ForkPoolWorker-2] Using YouTube API key: youtube_key_3
-[2025-06-12 19:07:58,668: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:07:58,668: INFO/ForkPoolWorker-2] Server error, retrying in 2.47 seconds...
-[2025-06-12 19:08:01,493: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:08:01,494: ERROR/ForkPoolWorker-4] Failed to get metadata for channel UCq-Fj5jknLsUf-MWSy4_brA: <HttpError 503 when requesting https://youtube.googleapis.com/youtube/v3/channels?part=snippet%2Cstatistics%2CbrandingSettings%2Cstatus%2CtopicDetails&id=UCq-Fj5jknLsUf-MWSy4_brA&key=AIzaSyAKU5EN-KqfYiBgSRbYlJtzyq5KxSaS5G4&alt=json returned "Visibility check was unavailable. Please retry the request and contact support if the problem persists". Details: "[{'message': 'Visibility check was unavailable. Please retry the request and contact support if the problem persists', 'domain': 'global', 'reason': 'backendError'}]">
-[2025-06-12 19:08:06,319: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:08:06,320: INFO/ForkPoolWorker-2] Server error, retrying in 4.11 seconds...
-[2025-06-12 19:08:06,753: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:08:06,754: INFO/ForkPoolWorker-4] Server error, retrying in 2.80 seconds...
-[2025-06-12 19:08:14,790: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:08:14,790: INFO/ForkPoolWorker-4] Server error, retrying in 4.94 seconds...
-[2025-06-12 19:08:15,608: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:08:15,608: ERROR/ForkPoolWorker-2] Failed to get videos for channel UCXuqSBlHAE6Xw-yeJA0Tunw: <HttpError 503 when requesting https://youtube.googleapis.com/youtube/v3/channels?part=contentDetails&id=UCXuqSBlHAE6Xw-yeJA0Tunw&key=AIzaSyAKU5EN-KqfYiBgSRbYlJtzyq5KxSaS5G4&alt=json returned "Visibility check was unavailable. Please retry the request and contact support if the problem persists". Details: "[{'message': 'Visibility check was unavailable. Please retry the request and contact support if the problem persists', 'domain': 'global', 'reason': 'backendError'}]">
-[2025-06-12 19:08:21,036: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:08:21,036: INFO/ForkPoolWorker-2] Server error, retrying in 2.69 seconds...
-[2025-06-12 19:08:24,954: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:08:24,955: ERROR/ForkPoolWorker-4] Failed to get metadata for channel UCbCmjCuTUZos6Inko4u57UQ: <HttpError 503 when requesting https://youtube.googleapis.com/youtube/v3/channels?part=snippet%2Cstatistics%2CbrandingSettings%2Cstatus%2CtopicDetails&id=UCbCmjCuTUZos6Inko4u57UQ&key=AIzaSyAKU5EN-KqfYiBgSRbYlJtzyq5KxSaS5G4&alt=json returned "Visibility check was unavailable. Please retry the request and contact support if the problem persists". Details: "[{'message': 'Visibility check was unavailable. Please retry the request and contact support if the problem persists', 'domain': 'global', 'reason': 'backendError'}]">
-[2025-06-12 19:08:28,920: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:08:28,920: INFO/ForkPoolWorker-2] Server error, retrying in 4.18 seconds...
-[2025-06-12 19:08:30,249: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:08:30,250: INFO/ForkPoolWorker-4] Server error, retrying in 2.35 seconds...
-[2025-06-12 19:08:37,833: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:08:37,834: INFO/ForkPoolWorker-4] Server error, retrying in 4.75 seconds...
-[2025-06-12 19:08:38,271: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:08:38,272: ERROR/ForkPoolWorker-2] Failed to get videos for channel UCsooa4yRKGN_zEE8iknghZA: <HttpError 503 when requesting https://youtube.googleapis.com/youtube/v3/channels?part=contentDetails&id=UCsooa4yRKGN_zEE8iknghZA&key=AIzaSyAKU5EN-KqfYiBgSRbYlJtzyq5KxSaS5G4&alt=json returned "Visibility check was unavailable. Please retry the request and contact support if the problem persists". Details: "[{'message': 'Visibility check was unavailable. Please retry the request and contact support if the problem persists', 'domain': 'global', 'reason': 'backendError'}]">
-[2025-06-12 19:08:43,638: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:08:43,638: INFO/ForkPoolWorker-2] Server error, retrying in 2.43 seconds...
-[2025-06-12 19:08:47,762: ERROR/ForkPoolWorker-4] YouTube API error 503: backendError
-[2025-06-12 19:08:47,762: ERROR/ForkPoolWorker-4] Failed to get metadata for channel UCiS882YPwZt1NkyM93oy4yQ: <HttpError 503 when requesting https://youtube.googleapis.com/youtube/v3/channels?part=snippet%2Cstatistics%2CbrandingSettings%2Cstatus%2CtopicDetails&id=UCiS882YPwZt1NkyM93oy4yQ&key=AIzaSyAKU5EN-KqfYiBgSRbYlJtzyq5KxSaS5G4&alt=json returned "Visibility check was unavailable. Please retry the request and contact support if the problem persists". Details: "[{'message': 'Visibility check was unavailable. Please retry the request and contact support if the problem persists', 'domain': 'global', 'reason': 'backendError'}]">
-[2025-06-12 19:08:47,918: INFO/ForkPoolWorker-4] Batch 1 completed. Progress: 4/4 (100.0%)
-[2025-06-12 19:08:50,620: INFO/ForkPoolWorker-4] Batch processing completed: 4 channels processed
-[2025-06-12 19:08:50,622: INFO/ForkPoolWorker-4] Task tasks.batch_process_channels[8c806cec-3f30-4171-9825-0ae178a08685] succeeded in 87.96752249999918s: {'status': 'completed', 'total_processed': 4, 'batches_completed': 1}
-[2025-06-12 19:08:51,362: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:08:51,362: INFO/ForkPoolWorker-2] Server error, retrying in 4.07 seconds...
-[2025-06-12 19:09:00,606: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:09:00,606: ERROR/ForkPoolWorker-2] Failed to get videos for channel UC-lHJZR3Gqxm24_Vd_AJ5Yw: <HttpError 503 when requesting https://youtube.googleapis.com/youtube/v3/channels?part=contentDetails&id=UC-lHJZR3Gqxm24_Vd_AJ5Yw&key=AIzaSyAKU5EN-KqfYiBgSRbYlJtzyq5KxSaS5G4&alt=json returned "Visibility check was unavailable. Please retry the request and contact support if the problem persists". Details: "[{'message': 'Visibility check was unavailable. Please retry the request and contact support if the problem persists', 'domain': 'global', 'reason': 'backendError'}]">
-[2025-06-12 19:09:06,001: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:09:06,001: INFO/ForkPoolWorker-2] Server error, retrying in 2.07 seconds...
-[2025-06-12 19:09:13,221: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:09:13,221: INFO/ForkPoolWorker-2] Server error, retrying in 4.74 seconds...
-[2025-06-12 19:09:23,134: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:09:23,135: ERROR/ForkPoolWorker-2] Failed to get videos for channel UCYfdidRxbB8Qhf0Nx7ioOYw: <HttpError 503 when requesting https://youtube.googleapis.com/youtube/v3/channels?part=contentDetails&id=UCYfdidRxbB8Qhf0Nx7ioOYw&key=AIzaSyAKU5EN-KqfYiBgSRbYlJtzyq5KxSaS5G4&alt=json returned "Visibility check was unavailable. Please retry the request and contact support if the problem persists". Details: "[{'message': 'Visibility check was unavailable. Please retry the request and contact support if the problem persists', 'domain': 'global', 'reason': 'backendError'}]">
-[2025-06-12 19:09:28,632: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:09:28,632: INFO/ForkPoolWorker-2] Server error, retrying in 2.17 seconds...
-[2025-06-12 19:09:35,996: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:09:35,996: INFO/ForkPoolWorker-2] Server error, retrying in 4.37 seconds...
-[2025-06-12 19:09:43,670: ERROR/ForkPoolWorker-2] YouTube API error 503: backendError
-[2025-06-12 19:09:43,671: ERROR/ForkPoolWorker-2] Failed to get videos for channel UCUZHFZ9jIKrLroW8LcyJEQQ: <HttpError 503 when requesting https://youtube.googleapis.com/youtube/v3/channels?part=contentDetails&id=UCUZHFZ9jIKrLroW8LcyJEQQ&key=AIzaSyAKU5EN-KqfYiBgSRbYlJtzyq5KxSaS5G4&alt=json returned "Visibility check was unavailable. Please retry the request and contact support if the problem persists". Details: "[{'message': 'Visibility check was unavailable. Please retry the request and contact support if the problem persists', 'domain': 'global', 'reason': 'backendError'}]">
-[2025-06-12 19:09:43,994: INFO/ForkPoolWorker-2] Batch 1 completed. Progress: 5/5 (100.0%)
-[2025-06-12 19:09:46,506: INFO/ForkPoolWorker-2] Batch processing completed: 5 channels processed
-[2025-06-12 19:09:46,509: INFO/ForkPoolWorker-2] Task tasks.batch_process_channels[b82ee2a6-c358-4700-9e0f-55b97d5e2291] succeeded in 113.50270269999965s: {'status': 'completed', 'total_processed': 5, 'batches_completed': 1}
-[2025-06-12 20:12:44,224: WARNING/MainProcess] consumer: Connection to broker lost. Trying to re-establish the connection...
-Traceback (most recent call last):
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py", line 336, in start
-    blueprint.start(self)
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/bootsteps.py", line 116, in start
-    step.start(parent)
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py", line 726, in start
-    c.loop(*c.loop_args())
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/loops.py", line 97, in asynloop
-    next(loop)
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/kombu/asynchronous/hub.py", line 373, in create_loop
-    cb(*cbargs)
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/kombu/transport/redis.py", line 1359, in on_readable
-    self.cycle.on_readable(fileno)
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/kombu/transport/redis.py", line 576, in on_readable
-    chan.handlers[type]()
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/kombu/transport/redis.py", line 925, in _receive
-    ret.append(self._receive_one(c))
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/kombu/transport/redis.py", line 935, in _receive_one
-    response = c.parse_response()
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/client.py", line 1542, in parse_response
-    response = self._execute(conn, try_read)
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/client.py", line 1518, in _execute
-    return conn.retry.call_with_retry(
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/retry.py", line 49, in call_with_retry
-    fail(error)
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/client.py", line 1520, in <lambda>
-    lambda error: self._disconnect_raise_connect(conn, error),
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/client.py", line 1507, in _disconnect_raise_connect
-    raise error
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/retry.py", line 46, in call_with_retry
-    return do()
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/client.py", line 1519, in <lambda>
-    lambda: command(*args, **kwargs),
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/client.py", line 1540, in try_read
-    return conn.read_response(disconnect_on_error=False)
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/connection.py", line 882, in read_response
-    response = self._parser.read_response(disable_decoding=disable_decoding)
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/connection.py", line 349, in read_response
-    result = self._read_response(disable_decoding=disable_decoding)
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/connection.py", line 359, in _read_response
-    raw = self._buffer.readline()
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/connection.py", line 262, in readline
-    self._read_from_socket()
-  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/connection.py", line 215, in _read_from_socket
-    raise ConnectionError(SERVER_CLOSED_CONNECTION_ERROR)
-redis.exceptions.ConnectionError: Connection closed by server.
-[2025-06-12 20:12:44,234: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:386: CPendingDeprecationWarning: 
-In Celery 5.1 we introduced an optional breaking change which
-on connection loss cancels all currently executed tasks with late acknowledgement enabled.
-These tasks cannot be acknowledged as the connection is gone, and the tasks are automatically redelivered
-back to the queue. You can enable this behavior using the worker_cancel_long_running_tasks_on_connection_loss
-setting. In Celery 5.1 it is set to False by default. The setting will be set to True by default in Celery 6.0.
-
-  warnings.warn(CANCEL_TASKS_BY_DEFAULT, CPendingDeprecationWarning)
-
-[2025-06-12 20:12:44,238: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
-whether broker connection retries are made during startup in Celery 6.0 and above.
-If you wish to retain the existing behavior for retrying connections on startup,
-you should set broker_connection_retry_on_startup to True.
-  warnings.warn(
-
-[2025-06-12 20:12:44,240: ERROR/MainProcess] consumer: Cannot connect to redis://localhost:6379/0: Error 111 connecting to localhost:6379. Connection refused..
-Trying again in 2.00 seconds... (1/100)
-
-[2025-06-12 20:12:46,244: ERROR/MainProcess] consumer: Cannot connect to redis://localhost:6379/0: Error 111 connecting to localhost:6379. Connection refused..
-Trying again in 4.00 seconds... (2/100)
-
-[2025-06-12 20:12:50,250: ERROR/MainProcess] consumer: Cannot connect to redis://localhost:6379/0: Error 111 connecting to localhost:6379. Connection refused..
-Trying again in 6.00 seconds... (3/100)
-
-[2025-06-12 20:12:56,259: ERROR/MainProcess] consumer: Cannot connect to redis://localhost:6379/0: Error 111 connecting to localhost:6379. Connection refused..
-Trying again in 8.00 seconds... (4/100)
-
-[2025-06-12 20:13:04,269: ERROR/MainProcess] consumer: Cannot connect to redis://localhost:6379/0: Error 111 connecting to localhost:6379. Connection refused..
-Trying again in 10.00 seconds... (5/100)
-
-[2025-06-12 20:13:14,285: ERROR/MainProcess] consumer: Cannot connect to redis://localhost:6379/0: Error 111 connecting to localhost:6379. Connection refused..
-Trying again in 12.00 seconds... (6/100)
-
-
-Restarting celery worker (/home/gabriel/youtube-channel-aggregator/venv/bin/celery -A tasks worker --loglevel=info --concurrency=4 --queues=migration,youtube_api,discovery,batch_processing --prefetch-multiplier=1 --max-tasks-per-child=1000 --time-limit=3600 --soft-time-limit=3300)
-
-worker: Warm shutdown (MainProcess)
+[2025-06-13 09:08:15,476: INFO/MainProcess] mingle: searching for neighbors
+[2025-06-13 09:08:16,489: INFO/MainProcess] mingle: all alone
+[2025-06-13 09:08:16,511: INFO/MainProcess] celery@DESKTOP-UHLI6AM ready.
+[2025-06-13 09:09:46,075: INFO/MainProcess] Task tasks.batch_process_channels[b7e6dc78-1e76-4613-b22d-ea1da583adb2] received
+[2025-06-13 09:09:46,150: INFO/ForkPoolWorker-4] Starting batch processing: metadata with batch size 100
+[2025-06-13 09:09:46,167: INFO/ForkPoolWorker-4] Processing batch 1: 4 channels
+[2025-06-13 09:09:46,171: INFO/ForkPoolWorker-4] Connecting to database: postgresql://youtube:youtube123@localhost:5432/youtube_channels
+[2025-06-13 09:09:46,198: INFO/ForkPoolWorker-4] file_cache is only supported with oauth2client<4.0.0
+[2025-06-13 09:09:46,204: INFO/ForkPoolWorker-4] Using YouTube API key: youtube_key_1
+[2025-06-13 09:09:47,019: WARNING/ForkPoolWorker-4] No data found for channel ID: UCsgp0TTPJdAqkaGMqq-HJ9w
+[2025-06-13 09:09:48,623: WARNING/ForkPoolWorker-4] No data found for channel ID: UCiS882YPwZt1NkyM93oy4yQ
+[2025-06-13 09:09:48,740: INFO/ForkPoolWorker-4] Batch 1 completed. Progress: 4/4 (100.0%)
+[2025-06-13 09:09:50,789: INFO/ForkPoolWorker-4] Batch processing completed: 4 channels processed
+[2025-06-13 09:09:50,792: INFO/ForkPoolWorker-4] Task tasks.batch_process_channels[b7e6dc78-1e76-4613-b22d-ea1da583adb2] succeeded in 4.714176699999939s: {'status': 'completed', 'total_processed': 4, 'batches_completed': 1}
+[2025-06-13 09:11:23,382: INFO/MainProcess] Task tasks.batch_process_channels[eab09f02-a6bf-4f9a-9423-0e154851da1d] received
+[2025-06-13 09:11:23,389: INFO/ForkPoolWorker-4] Starting batch processing: metadata with batch size 2000
+[2025-06-13 09:11:23,396: INFO/ForkPoolWorker-4] Processing batch 1: 2 channels
+[2025-06-13 09:11:23,398: INFO/ForkPoolWorker-4] Connecting to database: postgresql://youtube:youtube123@localhost:5432/youtube_channels
+[2025-06-13 09:11:23,418: INFO/ForkPoolWorker-4] file_cache is only supported with oauth2client<4.0.0
+[2025-06-13 09:11:23,422: INFO/ForkPoolWorker-4] Using YouTube API key: youtube_key_2
+[2025-06-13 09:11:24,218: WARNING/ForkPoolWorker-4] No data found for channel ID: UCsgp0TTPJdAqkaGMqq-HJ9w
+[2025-06-13 09:11:24,584: WARNING/ForkPoolWorker-4] No data found for channel ID: UCiS882YPwZt1NkyM93oy4yQ
+[2025-06-13 09:11:24,702: INFO/ForkPoolWorker-4] Batch 1 completed. Progress: 2/2 (100.0%)
+[2025-06-13 09:11:26,304: INFO/ForkPoolWorker-4] Batch processing completed: 2 channels processed
+[2025-06-13 09:11:26,305: INFO/ForkPoolWorker-4] Task tasks.batch_process_channels[eab09f02-a6bf-4f9a-9423-0e154851da1d] succeeded in 2.922343899999987s: {'status': 'completed', 'total_processed': 2, 'batches_completed': 1}
+[2025-06-13 09:11:41,834: INFO/MainProcess] Task tasks.batch_process_channels[ac0b1be6-1e85-44ef-ae32-27b767f064e3] received
+[2025-06-13 09:11:41,841: INFO/ForkPoolWorker-4] Starting batch processing: videos with batch size 500
+[2025-06-13 09:11:41,853: INFO/ForkPoolWorker-4] Processing batch 1: 2 channels
+[2025-06-13 09:11:41,856: INFO/ForkPoolWorker-4] Connecting to database: postgresql://youtube:youtube123@localhost:5432/youtube_channels
+[2025-06-13 09:11:41,876: INFO/ForkPoolWorker-4] file_cache is only supported with oauth2client<4.0.0
+[2025-06-13 09:11:41,879: INFO/ForkPoolWorker-4] Using YouTube API key: youtube_key_3
+[2025-06-13 09:11:43,479: INFO/ForkPoolWorker-4] Retrieved 25 videos for channel UCq-Fj5jknLsUf-MWSy4_brA
+[2025-06-13 09:11:45,245: INFO/ForkPoolWorker-4] Retrieved 25 videos for channel UCbCmjCuTUZos6Inko4u57UQ
+[2025-06-13 09:11:45,860: INFO/ForkPoolWorker-4] Batch 1 completed. Progress: 2/2 (100.0%)
+[2025-06-13 09:11:48,308: INFO/ForkPoolWorker-4] Batch processing completed: 2 channels processed
+[2025-06-13 09:11:48,310: INFO/ForkPoolWorker-4] Task tasks.batch_process_channels[ac0b1be6-1e85-44ef-ae32-27b767f064e3] succeeded in 6.474924699999974s: {'status': 'completed', 'total_processed': 2, 'batches_completed': 1}

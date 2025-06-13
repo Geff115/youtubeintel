@@ -128,6 +128,31 @@ def list_jobs():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/jobs/<job_id>', methods=['GET'])
+def get_job_status(job_id):
+    """Get processing job status"""
+    try:
+        job = ProcessingJob.query.get(uuid.UUID(job_id))
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        return jsonify({
+            'job_id': str(job.id),
+            'job_type': job.job_type,
+            'status': job.status,
+            'total_items': job.total_items,
+            'processed_items': job.processed_items,
+            'progress': (job.processed_items / job.total_items * 100) if job.total_items else 0,
+            'error_message': job.error_message,
+            'started_at': job.started_at.isoformat() if job.started_at else None,
+            'completed_at': job.completed_at.isoformat() if job.completed_at else None,
+            'created_at': job.created_at.isoformat()
+        })
+    except ValueError:
+        return jsonify({'error': 'Invalid job ID format'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/test-youtube', methods=['POST'])
 def test_youtube_connection():
     """Test YouTube API connection"""

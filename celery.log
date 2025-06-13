@@ -1,10 +1,11 @@
+🔗 Celery broker: Local Redis
  
  -------------- celery@DESKTOP-UHLI6AM v5.3.1 (emerald-rush)
 --- ***** ----- 
--- ******* ---- Linux-5.10.102.1-microsoft-standard-WSL2-x86_64-with-glibc2.35 2025-06-12 13:46:46
+-- ******* ---- Linux-5.10.102.1-microsoft-standard-WSL2-x86_64-with-glibc2.35 2025-06-13 09:07:13
 - *** --- * --- 
 - ** ---------- [config]
-- ** ---------- .> app:         youtube_processor:0x7f8b2c6cbf70
+- ** ---------- .> app:         youtube_processor:0x7fcf7e8d3f70
 - ** ---------- .> transport:   redis://localhost:6379/0
 - ** ---------- .> results:     redis://localhost:6379/0
 - *** --- * --- .> concurrency: 2 (prefork)
@@ -15,29 +16,59 @@
                 
 
 [tasks]
+  . tasks.batch_process_channels
   . tasks.cleanup_old_jobs
   . tasks.discover_related_channels
   . tasks.fetch_channel_metadata
   . tasks.fetch_channel_videos
   . tasks.migrate_channel_data
+  . tasks.monitor_system_health
   . tasks.reset_api_quotas
 
-[2025-06-12 13:46:46,814: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+[2025-06-13 09:07:13,521: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
 whether broker connection retries are made during startup in Celery 6.0 and above.
 If you wish to retain the existing behavior for retrying connections on startup,
 you should set broker_connection_retry_on_startup to True.
   warnings.warn(
 
-[2025-06-12 13:46:46,871: INFO/MainProcess] Connected to redis://localhost:6379/0
-[2025-06-12 13:46:46,872: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+[2025-06-13 09:07:13,528: INFO/MainProcess] Connected to redis://localhost:6379/0
+[2025-06-13 09:07:13,529: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:498: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
 whether broker connection retries are made during startup in Celery 6.0 and above.
 If you wish to retain the existing behavior for retrying connections on startup,
 you should set broker_connection_retry_on_startup to True.
   warnings.warn(
 
-[2025-06-12 13:46:46,874: INFO/MainProcess] mingle: searching for neighbors
-[2025-06-12 13:46:47,885: INFO/MainProcess] mingle: all alone
-[2025-06-12 13:46:47,900: INFO/MainProcess] celery@DESKTOP-UHLI6AM ready.
+[2025-06-13 09:07:13,531: INFO/MainProcess] mingle: searching for neighbors
+[2025-06-13 09:07:14,542: INFO/MainProcess] mingle: all alone
+[2025-06-13 09:07:14,623: INFO/MainProcess] celery@DESKTOP-UHLI6AM ready.
+[2025-06-13 09:07:14,626: INFO/MainProcess] Task tasks.monitor_system_health[2324a4fe-bea8-4a37-ac67-72ee9737ba38] received
+[2025-06-13 09:07:14,628: INFO/MainProcess] Task tasks.monitor_system_health[1ef23d6e-3c77-40e2-8f6f-9fe7b6b31265] received
+[2025-06-13 09:07:14,629: WARNING/ForkPoolWorker-2] 🏠 Using local Redis (no UPSTASH credentials or development mode)
+[2025-06-13 09:07:14,629: WARNING/ForkPoolWorker-1] 🏠 Using local Redis (no UPSTASH credentials or development mode)
+[2025-06-13 09:07:14,631: WARNING/ForkPoolWorker-2] ✅ Redis connection successful
+[2025-06-13 09:07:14,632: WARNING/ForkPoolWorker-1] ✅ Redis connection successful
+[2025-06-13 09:07:14,691: INFO/ForkPoolWorker-1] ✅ System health check passed
+[2025-06-13 09:07:14,691: INFO/ForkPoolWorker-2] ✅ System health check passed
+[2025-06-13 09:07:14,694: INFO/ForkPoolWorker-1] Task tasks.monitor_system_health[1ef23d6e-3c77-40e2-8f6f-9fe7b6b31265] succeeded in 0.06449099999997543s: {'redis': {'status': 'success', 'redis_version': '6.0.16', 'connected_clients': 12, 'used_memory_human': '1.26M', 'environment': 'development'}, 'database': {'status': 'success'}, 'timestamp': '2025-06-13T08:07:14.691916'}
+[2025-06-13 09:07:14,694: INFO/ForkPoolWorker-2] Task tasks.monitor_system_health[2324a4fe-bea8-4a37-ac67-72ee9737ba38] succeeded in 0.06452010000009523s: {'redis': {'status': 'success', 'redis_version': '6.0.16', 'connected_clients': 12, 'used_memory_human': '1.26M', 'environment': 'development'}, 'database': {'status': 'success'}, 'timestamp': '2025-06-13T08:07:14.691969'}
+[2025-06-13 09:07:14,697: INFO/MainProcess] Task tasks.monitor_system_health[c381866c-a575-4813-a914-bb0be17421db] received
+[2025-06-13 09:07:14,697: WARNING/ForkPoolWorker-2] 🏠 Using local Redis (no UPSTASH credentials or development mode)
+[2025-06-13 09:07:14,698: INFO/MainProcess] Task tasks.monitor_system_health[130a5057-82bc-4ad0-b55f-da9dfc6d3582] received
+[2025-06-13 09:07:14,699: WARNING/ForkPoolWorker-2] ✅ Redis connection successful
+[2025-06-13 09:07:14,699: WARNING/ForkPoolWorker-1] 🏠 Using local Redis (no UPSTASH credentials or development mode)
+[2025-06-13 09:07:14,700: WARNING/ForkPoolWorker-1] ✅ Redis connection successful
+[2025-06-13 09:07:14,702: INFO/ForkPoolWorker-2] ✅ System health check passed
+[2025-06-13 09:07:14,703: INFO/ForkPoolWorker-2] Task tasks.monitor_system_health[c381866c-a575-4813-a914-bb0be17421db] succeeded in 0.0060814000000846136s: {'redis': {'status': 'success', 'redis_version': '6.0.16', 'connected_clients': 13, 'used_memory_human': '1.32M', 'environment': 'development'}, 'database': {'status': 'success'}, 'timestamp': '2025-06-13T08:07:14.702623'}
+[2025-06-13 09:07:14,704: INFO/ForkPoolWorker-1] ✅ System health check passed
+[2025-06-13 09:07:14,705: INFO/ForkPoolWorker-1] Task tasks.monitor_system_health[130a5057-82bc-4ad0-b55f-da9dfc6d3582] succeeded in 0.005996699999968769s: {'redis': {'status': 'success', 'redis_version': '6.0.16', 'connected_clients': 13, 'used_memory_human': '1.32M', 'environment': 'development'}, 'database': {'status': 'success'}, 'timestamp': '2025-06-13T08:07:14.704518'}
+[2025-06-13 09:07:14,706: INFO/MainProcess] Task tasks.reset_api_quotas[55aec40f-7920-4860-af01-fccd4ad4d6f8] received
+[2025-06-13 09:07:14,742: INFO/ForkPoolWorker-2] Reset quota for API key: youtube_key_3
+[2025-06-13 09:07:14,743: INFO/ForkPoolWorker-2] Reset quota for API key: youtube_key_4
+[2025-06-13 09:07:14,743: INFO/ForkPoolWorker-2] Reset quota for API key: youtube_key_5
+[2025-06-13 09:07:14,743: INFO/ForkPoolWorker-2] Reset quota for API key: youtube_key_1
+[2025-06-13 09:07:14,743: INFO/ForkPoolWorker-2] Reset quota for API key: youtube_key_2
+[2025-06-13 09:07:14,764: INFO/ForkPoolWorker-2] Reset quotas for 5 API keys
+[2025-06-13 09:07:14,766: INFO/ForkPoolWorker-2] Task tasks.reset_api_quotas[55aec40f-7920-4860-af01-fccd4ad4d6f8] succeeded in 0.05898509999997259s: None
 
 worker: Hitting Ctrl+C again will terminate all running tasks!
 
