@@ -27,21 +27,31 @@ from external_services import ExternalChannelDiscovery
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Celery
+# Initialize Celery with Redis configuration
+from redis_config import get_celery_broker_url
+
 celery_app = Celery('youtube_processor')
+
+# Get broker URL (handles both local and UPSTASH Redis)
+broker_url = get_celery_broker_url()
+
 celery_app.conf.update(
-    broker_url=os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
-    result_backend=os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
+    broker_url=broker_url,
+    result_backend=broker_url,
     task_serializer='json',
     accept_content=['json'],
     result_serializer='json',
     timezone='UTC',
     enable_utc=True,
+    worker_prefetch_multiplier=1,  # Better for production
+    task_acks_late=True,  # Acknowledge after task completion
+    worker_max_tasks_per_child=1000,  # Restart workers periodically
     task_routes={
         'tasks.migrate_channel_data': {'queue': 'migration'},
         'tasks.fetch_channel_metadata': {'queue': 'youtube_api'},
         'tasks.fetch_channel_videos': {'queue': 'youtube_api'},
         'tasks.discover_related_channels': {'queue': 'discovery'},
+        'tasks.batch_process_channels': {'queue': 'batch_processing'},
     },
     beat_schedule={
         'reset-api-quotas': {
@@ -51,6 +61,10 @@ celery_app.conf.update(
         'cleanup_old_jobs': {
             'task': 'tasks.cleanup_old_jobs',
             'schedule': 86400.0,  # Daily
+        },
+        'monitor_system_health': {
+            'task': 'tasks.monitor_system_health',
+            'schedule': 300.0,  # Every 5 minutes
         },
     }
 )
@@ -593,3 +607,358 @@ def cleanup_old_jobs():
         logger.error(f"Failed to cleanup old jobs: {str(e)}")
     finally:
         session.close()
+
+@celery_app.task(bind=True)
+def batch_process_channels(self, job_id, operation, batch_size=1000, total_limit=None):
+    """
+    High-performance batch processing for millions of channels
+    Operations: 'metadata', 'videos', 'discovery'
+    """
+    session = get_db_session()
+    
+    try:
+        job = session.query(ProcessingJob).filter_by(id=uuid.UUID(job_id)).first()
+        if not job:
+            raise Exception(f"Job {job_id} not found")
+        
+        job.start()
+        session.commit()
+        
+        logger.info(f"Starting batch processing: {operation} with batch size {batch_size}")
+        
+        # Get total count for progress tracking
+        if operation == 'metadata':
+            total_count = session.query(Channel).filter_by(metadata_fetched=False).count()
+        elif operation == 'videos':
+            total_count = session.query(Channel).filter_by(
+                metadata_fetched=True, videos_fetched=False
+            ).count()
+        elif operation == 'discovery':
+            total_count = session.query(Channel).filter_by(discovery_processed=False).count()
+        else:
+            raise Exception(f"Unknown operation: {operation}")
+        
+        # Apply limit if specified
+        if total_limit and total_limit < total_count:
+            total_count = total_limit
+        
+        job.total_items = total_count
+        session.commit()
+        
+        if total_count == 0:
+            job.complete()
+            session.commit()
+            return {'status': 'completed', 'message': 'No channels to process'}
+        
+        processed = 0
+        batch_number = 1
+        
+        while processed < total_count:
+            # Calculate remaining items for this batch
+            remaining = total_count - processed
+            current_batch_size = min(batch_size, remaining)
+            
+            try:
+                logger.info(f"Processing batch {batch_number}: {current_batch_size} channels")
+                
+                if operation == 'metadata':
+                    batch_result = process_metadata_batch(current_batch_size, session)
+                elif operation == 'videos':
+                    batch_result = process_videos_batch(current_batch_size, session)
+                elif operation == 'discovery':
+                    batch_result = process_discovery_batch(current_batch_size, session)
+                
+                processed += batch_result.get('processed', 0)
+                job.update_progress(processed)
+                session.commit()
+                
+                # Progress reporting
+                progress_percent = (processed / total_count) * 100
+                logger.info(f"Batch {batch_number} completed. Progress: {processed}/{total_count} ({progress_percent:.1f}%)")
+                
+                # Rate limiting between batches
+                time.sleep(random.uniform(1, 3))
+                batch_number += 1
+                
+            except Exception as e:
+                logger.error(f"Batch {batch_number} failed: {str(e)}")
+                # Continue with next batch instead of failing entire job
+                processed += current_batch_size
+                continue
+        
+        job.complete()
+        session.commit()
+        
+        logger.info(f"Batch processing completed: {processed} channels processed")
+        return {
+            'status': 'completed', 
+            'total_processed': processed,
+            'batches_completed': batch_number - 1
+        }
+        
+    except Exception as e:
+        logger.error(f"Batch processing failed: {str(e)}")
+        job.fail(str(e))
+        session.commit()
+        return {'status': 'failed', 'error': str(e)}
+    
+    finally:
+        session.close()
+
+def process_metadata_batch(batch_size, session):
+    """Process a batch of channels for metadata fetching"""
+    try:
+        channels = session.query(Channel).filter_by(metadata_fetched=False).limit(batch_size).all()
+        
+        youtube_service = YouTubeService()
+        processed = 0
+        
+        for channel in channels:
+            try:
+                metadata = youtube_service.get_channel_metadata(channel.channel_id)
+                
+                if metadata:
+                    # Update channel with metadata
+                    channel.title = metadata.get('title', channel.title)
+                    channel.description = metadata.get('description')
+                    channel.subscriber_count = metadata.get('subscriber_count', 0)
+                    channel.video_count = metadata.get('video_count', 0)
+                    channel.view_count = metadata.get('view_count', 0)
+                    channel.country = metadata.get('country')
+                    channel.custom_url = metadata.get('custom_url')
+                    channel.published_at = metadata.get('published_at')
+                    channel.thumbnail_url = metadata.get('thumbnail_url')
+                    channel.banner_url = metadata.get('banner_url')
+                    channel.keywords = metadata.get('keywords', [])
+                    channel.topic_categories = metadata.get('topic_categories', [])
+                    
+                    # Language detection
+                    if channel.description:
+                        try:
+                            channel.language = detect(channel.description)
+                        except:
+                            channel.language = None
+                    
+                    channel.metadata_fetched = True
+                    channel.last_updated = datetime.utcnow()
+                
+                processed += 1
+                
+                # Commit every 10 channels to avoid large transactions
+                if processed % 10 == 0:
+                    session.commit()
+                
+                # Rate limiting
+                time.sleep(0.1)
+                
+            except Exception as e:
+                logger.error(f"Failed to process channel {channel.channel_id}: {str(e)}")
+                continue
+        
+        # Final commit
+        session.commit()
+        youtube_service.close()
+        
+        return {'processed': processed}
+        
+    except Exception as e:
+        logger.error(f"Metadata batch processing failed: {str(e)}")
+        return {'processed': 0, 'error': str(e)}
+
+def process_videos_batch(batch_size, session):
+    """Process a batch of channels for video fetching"""
+    try:
+        channels = session.query(Channel).filter_by(
+            metadata_fetched=True, 
+            videos_fetched=False
+        ).limit(batch_size).all()
+        
+        youtube_service = YouTubeService()
+        processed = 0
+        
+        for channel in channels:
+            try:
+                videos_per_channel = int(os.getenv('MAX_VIDEOS_PER_CHANNEL', 50))
+                videos = youtube_service.get_channel_videos(channel.channel_id, max_results=videos_per_channel)
+                
+                video_count = 0
+                for video_data in videos:
+                    # Check if video already exists
+                    existing_video = session.query(Video).filter_by(
+                        video_id=video_data['video_id']
+                    ).first()
+                    
+                    if not existing_video:
+                        video = Video(
+                            video_id=video_data['video_id'],
+                            channel_id=channel.id,
+                            channel_external_id=channel.channel_id,
+                            title=video_data.get('title'),
+                            description=video_data.get('description'),
+                            published_at=video_data.get('published_at'),
+                            duration=video_data.get('duration'),
+                            view_count=video_data.get('view_count'),
+                            like_count=video_data.get('like_count'),
+                            comment_count=video_data.get('comment_count'),
+                            thumbnail_url=video_data.get('thumbnail_url'),
+                            tags=video_data.get('tags', []),
+                            category_id=video_data.get('category_id')
+                        )
+                        
+                        # Language detection
+                        text_for_detection = (video_data.get('title', '') + ' ' + 
+                                            video_data.get('description', '')).strip()
+                        if text_for_detection:
+                            try:
+                                video.language = detect(text_for_detection)
+                            except:
+                                video.language = None
+                        
+                        session.add(video)
+                        video_count += 1
+                
+                channel.videos_fetched = True
+                channel.last_updated = datetime.utcnow()
+                processed += 1
+                
+                # Commit every 5 channels to manage transaction size
+                if processed % 5 == 0:
+                    session.commit()
+                
+                # Rate limiting
+                time.sleep(0.2)
+                
+            except Exception as e:
+                logger.error(f"Failed to fetch videos for {channel.channel_id}: {str(e)}")
+                continue
+        
+        session.commit()
+        youtube_service.close()
+        
+        return {'processed': processed}
+        
+    except Exception as e:
+        logger.error(f"Videos batch processing failed: {str(e)}")
+        return {'processed': 0, 'error': str(e)}
+
+def process_discovery_batch(batch_size, session):
+    """Process a batch of channels for discovery"""
+    try:
+        channels = session.query(Channel).filter_by(discovery_processed=False).limit(batch_size).all()
+        
+        discovery_service = ExternalChannelDiscovery()
+        processed = 0
+        new_channels_found = 0
+        
+        for channel in channels:
+            try:
+                # Use multiple discovery methods
+                methods = ['youtube_featured', 'similar_content', 'related_channels']
+                
+                for method in methods:
+                    try:
+                        discovered = discovery_service.discover_channels(
+                            channel.channel_id, 
+                            method=method
+                        )
+                        
+                        for discovery in discovered:
+                            # Record discovery
+                            existing_discovery = session.query(ChannelDiscovery).filter_by(
+                                source_channel_id=channel.id,
+                                discovered_channel_id=discovery['channel_id'],
+                                discovery_method=method
+                            ).first()
+                            
+                            if not existing_discovery:
+                                # Check if discovered channel already exists
+                                existing_channel = session.query(Channel).filter_by(
+                                    channel_id=discovery['channel_id']
+                                ).first()
+                                
+                                channel_discovery = ChannelDiscovery(
+                                    source_channel_id=channel.id,
+                                    discovered_channel_id=discovery['channel_id'],
+                                    discovery_method=method,
+                                    service_name=discovery.get('service', 'unknown'),
+                                    confidence_score=discovery.get('confidence', 0.0),
+                                    already_exists=existing_channel is not None
+                                )
+                                session.add(channel_discovery)
+                                
+                                # Add new channel if it doesn't exist
+                                if not existing_channel:
+                                    new_channel = Channel(
+                                        channel_id=discovery['channel_id'],
+                                        title=discovery.get('title', ''),
+                                        source='discovery',
+                                        discovered_from=channel.id
+                                    )
+                                    session.add(new_channel)
+                                    new_channels_found += 1
+                        
+                        # Rate limiting between methods
+                        time.sleep(random.uniform(2, 4))
+                        
+                    except Exception as e:
+                        logger.error(f"Discovery method {method} failed for {channel.channel_id}: {str(e)}")
+                        continue
+                
+                channel.discovery_processed = True
+                channel.last_updated = datetime.utcnow()
+                processed += 1
+                
+                # Commit every 3 channels (discovery creates many records)
+                if processed % 3 == 0:
+                    session.commit()
+                
+                # Rate limiting between channels
+                time.sleep(random.uniform(3, 6))
+                
+            except Exception as e:
+                logger.error(f"Failed to discover channels for {channel.channel_id}: {str(e)}")
+                continue
+        
+        session.commit()
+        discovery_service.close()
+        
+        return {'processed': processed, 'new_channels_found': new_channels_found}
+        
+    except Exception as e:
+        logger.error(f"Discovery batch processing failed: {str(e)}")
+        return {'processed': 0, 'error': str(e)}
+
+@celery_app.task
+def monitor_system_health():
+    """Monitor system health and performance"""
+    try:
+        from redis_config import test_redis_connection
+        
+        # Test Redis connection
+        redis_status = test_redis_connection()
+        
+        # Test database connection
+        session = get_db_session()
+        try:
+            session.execute(text("SELECT 1"))
+            db_status = {'status': 'success'}
+        except Exception as e:
+            db_status = {'status': 'error', 'message': str(e)}
+        finally:
+            session.close()
+        
+        # Log health status
+        if redis_status['status'] == 'success' and db_status['status'] == 'success':
+            logger.info("✅ System health check passed")
+        else:
+            logger.error(f"❌ System health check failed: Redis={redis_status['status']}, DB={db_status['status']}")
+        
+        return {
+            'redis': redis_status,
+            'database': db_status,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Health monitoring failed: {str(e)}")
+        return {'status': 'error', 'message': str(e)}

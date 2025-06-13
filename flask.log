@@ -1,17 +1,24 @@
+🔗 Celery broker: Local Redis
  * Serving Flask app 'app'
  * Debug mode: on
-[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5000
  * Running on http://172.27.23.219:5000
-[33mPress CTRL+C to quit[0m
- * Restarting with stat
- * Debugger is active!
- * Debugger PIN: 505-774-571
-127.0.0.1 - - [12/Jun/2025 13:46:53] "GET /health HTTP/1.1" 200 -
-127.0.0.1 - - [12/Jun/2025 13:47:04] "GET /health HTTP/1.1" 200 -
-127.0.0.1 - - [12/Jun/2025 13:47:38] "GET /api/stats HTTP/1.1" 200 -
-127.0.0.1 - - [12/Jun/2025 13:48:02] "GET /api/api-keys HTTP/1.1" 200 -
-127.0.0.1 - - [12/Jun/2025 13:48:26] "GET /api/jobs HTTP/1.1" 200 -
-127.0.0.1 - - [12/Jun/2025 13:50:08] "GET /api/channels HTTP/1.1" 200 -
-127.0.0.1 - - [12/Jun/2025 13:50:38] "POST /api/test-youtube HTTP/1.1" 200 -
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:werkzeug: * Restarting with stat
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 505-774-571
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 18:59:53] "GET /health HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 18:59:53] "GET /api/system-status HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 18:59:53] "GET /api/redis-test HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 19:01:14] "GET /api/system-status HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 19:01:41] "GET /api/redis-test HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 19:02:05] "GET /api/worker-status HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 19:02:31] "POST /api/batch-metadata HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 19:02:59] "GET /api/jobs HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 19:03:31] "[33mGET /api/jobs/0c2a7acd-b33d-4e20-a2b0-c1269f53b912 HTTP/1.1[0m" 404 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 19:04:11] "[33mGET /api/jobs/0c2a7acd-b33d-4e20-a2b0-c1269f53b912 HTTP/1.1[0m" 404 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 19:06:35] "POST /api/bulk-add-channels HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 19:07:22] "POST /api/batch-metadata HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [12/Jun/2025 19:07:53] "POST /api/batch-videos HTTP/1.1" 200 -

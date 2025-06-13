@@ -18,8 +18,21 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 from database import init_db
 db = init_db(app)
 
+# Import Redis configuration
+from redis_config import test_redis_connection
+
 # Import models after database is initialized
 from models import Channel, Video, APIKey, ProcessingJob, ChannelDiscovery
+
+# Import tasks after models are set up
+from tasks import (
+    migrate_channel_data, 
+    fetch_channel_metadata, 
+    fetch_channel_videos,
+    discover_related_channels,
+    batch_process_channels,
+    celery_app
+)
 
 # Routes
 @app.route('/health', methods=['GET'])
@@ -430,6 +443,354 @@ def add_sample_channels():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Failed to add sample channels: {str(e)}'}), 500
+
+@app.route('/api/redis-test', methods=['GET'])
+def test_redis():
+    """Test Redis connection (local or UPSTASH)"""
+    try:
+        result = test_redis_connection()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/batch-metadata', methods=['POST'])
+def start_batch_metadata():
+    """Start batch metadata processing for large volumes"""
+    try:
+        data = request.get_json() or {}
+        batch_size = data.get('batch_size', 1000)
+        total_limit = data.get('total_limit')  # Optional limit
+        
+        # Create processing job
+        job = ProcessingJob(
+            job_type='batch_metadata',
+            status='pending'
+        )
+        db.session.add(job)
+        db.session.commit()
+        
+        # Start async task
+        task = batch_process_channels.delay(
+            job_id=str(job.id),
+            operation='metadata',
+            batch_size=batch_size,
+            total_limit=total_limit
+        )
+        
+        return jsonify({
+            'job_id': str(job.id),
+            'task_id': task.id,
+            'status': 'started',
+            'message': f'Batch metadata processing started with batch size {batch_size}',
+            'estimated_batches': (total_limit or 'unknown') // batch_size if total_limit else 'unknown'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to start batch processing: {str(e)}'}), 500
+
+@app.route('/api/batch-videos', methods=['POST'])
+def start_batch_videos():
+    """Start batch video processing for large volumes"""
+    try:
+        data = request.get_json() or {}
+        batch_size = data.get('batch_size', 500)  # Smaller batches for videos
+        total_limit = data.get('total_limit')
+        
+        # Create processing job
+        job = ProcessingJob(
+            job_type='batch_videos',
+            status='pending'
+        )
+        db.session.add(job)
+        db.session.commit()
+        
+        # Start async task
+        task = batch_process_channels.delay(
+            job_id=str(job.id),
+            operation='videos',
+            batch_size=batch_size,
+            total_limit=total_limit
+        )
+        
+        return jsonify({
+            'job_id': str(job.id),
+            'task_id': task.id,
+            'status': 'started',
+            'message': f'Batch video processing started with batch size {batch_size}'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to start batch processing: {str(e)}'}), 500
+
+@app.route('/api/batch-discovery', methods=['POST'])
+def start_batch_discovery():
+    """Start batch discovery processing for large volumes"""
+    try:
+        data = request.get_json() or {}
+        batch_size = data.get('batch_size', 100)  # Smaller batches for discovery
+        total_limit = data.get('total_limit')
+        
+        # Create processing job
+        job = ProcessingJob(
+            job_type='batch_discovery',
+            status='pending'
+        )
+        db.session.add(job)
+        db.session.commit()
+        
+        # Start async task
+        task = batch_process_channels.delay(
+            job_id=str(job.id),
+            operation='discovery',
+            batch_size=batch_size,
+            total_limit=total_limit
+        )
+        
+        return jsonify({
+            'job_id': str(job.id),
+            'task_id': task.id,
+            'status': 'started',
+            'message': f'Batch discovery processing started with batch size {batch_size}'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to start batch processing: {str(e)}'}), 500
+
+@app.route('/api/migrate', methods=['POST'])
+def start_migration():
+    """Start channel data migration from existing sources"""
+    try:
+        data = request.get_json() or {}
+        source_type = data.get('source_type', 'csv')  # csv, json, mysql
+        source_path = data.get('source_path', '')
+        batch_size = data.get('batch_size', 5000)  # Larger batches for migration
+        
+        if not source_path:
+            return jsonify({'error': 'source_path is required'}), 400
+        
+        # Create processing job
+        job = ProcessingJob(
+            job_type='migration',
+            status='pending'
+        )
+        db.session.add(job)
+        db.session.commit()
+        
+        # Start async task
+        task = migrate_channel_data.delay(
+            job_id=str(job.id),
+            source_type=source_type,
+            source_path=source_path,
+            batch_size=batch_size
+        )
+        
+        return jsonify({
+            'job_id': str(job.id),
+            'task_id': task.id,
+            'status': 'started',
+            'message': f'Migration started for {source_type} source with batch size {batch_size}'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to start migration: {str(e)}'}), 500
+
+@app.route('/api/legacy-fetch-metadata', methods=['POST'])
+def start_legacy_metadata_fetch():
+    """Start legacy metadata fetch (original implementation)"""
+    try:
+        data = request.get_json() or {}
+        channel_ids = data.get('channel_ids', [])
+        limit = data.get('limit', 1000)
+        
+        # Create processing job
+        job = ProcessingJob(
+            job_type='metadata_fetch',
+            status='pending',
+            total_items=limit
+        )
+        db.session.add(job)
+        db.session.commit()
+        
+        # Start async task
+        task = fetch_channel_metadata.delay(
+            job_id=str(job.id),
+            channel_ids=channel_ids,
+            limit=limit
+        )
+        
+        return jsonify({
+            'job_id': str(job.id),
+            'task_id': task.id,
+            'status': 'started',
+            'message': f'Legacy metadata fetch started for up to {limit} channels'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to start metadata fetch: {str(e)}'}), 500
+
+@app.route('/api/system-status', methods=['GET'])
+def get_system_status():
+    """Get comprehensive system status"""
+    try:
+        # Get basic stats
+        stats = {
+            'total_channels': Channel.query.count(),
+            'channels_with_metadata': Channel.query.filter_by(metadata_fetched=True).count(),
+            'channels_with_videos': Channel.query.filter_by(videos_fetched=True).count(),
+            'total_videos': Video.query.count(),
+            'active_api_keys': APIKey.query.filter_by(is_active=True).count(),
+            'pending_jobs': ProcessingJob.query.filter_by(status='pending').count(),
+            'running_jobs': ProcessingJob.query.filter_by(status='running').count(),
+            'completed_jobs_today': ProcessingJob.query.filter(
+                ProcessingJob.status == 'completed',
+                ProcessingJob.completed_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            ).count()
+        }
+        
+        # Test Redis connection
+        redis_status = test_redis_connection()
+        
+        # Get API key usage
+        api_keys = APIKey.query.filter_by(is_active=True).all()
+        api_key_status = []
+        for key in api_keys:
+            api_key_status.append({
+                'key_name': key.key_name,
+                'quota_used': key.quota_used,
+                'quota_limit': key.quota_limit,
+                'usage_percentage': (key.quota_used / key.quota_limit * 100) if key.quota_limit > 0 else 0,
+                'last_used': key.last_used.isoformat() if key.last_used else None
+            })
+        
+        # Get recent job activity
+        recent_jobs = ProcessingJob.query.order_by(
+            ProcessingJob.created_at.desc()
+        ).limit(10).all()
+        
+        job_activity = []
+        for job in recent_jobs:
+            job_activity.append({
+                'job_id': str(job.id),
+                'job_type': job.job_type,
+                'status': job.status,
+                'progress': (job.processed_items / job.total_items * 100) if job.total_items else 0,
+                'created_at': job.created_at.isoformat(),
+                'completed_at': job.completed_at.isoformat() if job.completed_at else None
+            })
+        
+        return jsonify({
+            'stats': stats,
+            'redis_status': redis_status,
+            'api_keys': api_key_status,
+            'recent_jobs': job_activity,
+            'environment': os.getenv('ENVIRONMENT', 'development'),
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get system status: {str(e)}'}), 500
+
+@app.route('/api/bulk-add-channels', methods=['POST'])
+def bulk_add_channels():
+    """Add channels in bulk from JSON data"""
+    try:
+        data = request.get_json() or {}
+        channels_data = data.get('channels', [])
+        source = data.get('source', 'bulk_upload')
+        
+        if not channels_data:
+            return jsonify({'error': 'No channels data provided'}), 400
+        
+        added_count = 0
+        skipped_count = 0
+        results = []
+        
+        # Process in batches to avoid memory issues
+        batch_size = 1000
+        for i in range(0, len(channels_data), batch_size):
+            batch = channels_data[i:i + batch_size]
+            
+            for channel_data in batch:
+                channel_id = channel_data.get('channel_id')
+                if not channel_id:
+                    continue
+                
+                # Check if channel already exists
+                existing = Channel.query.filter_by(channel_id=channel_id).first()
+                
+                if not existing:
+                    channel = Channel(
+                        channel_id=channel_id,
+                        title=channel_data.get('title', ''),
+                        description=channel_data.get('description', ''),
+                        source=source
+                    )
+                    db.session.add(channel)
+                    added_count += 1
+                    results.append({
+                        'channel_id': channel_id,
+                        'status': 'added'
+                    })
+                else:
+                    skipped_count += 1
+                    results.append({
+                        'channel_id': channel_id,
+                        'status': 'already_exists'
+                    })
+            
+            # Commit batch
+            db.session.commit()
+        
+        return jsonify({
+            'message': f'Bulk upload completed: {added_count} added, {skipped_count} skipped',
+            'added': added_count,
+            'skipped': skipped_count,
+            'total_processed': len(channels_data),
+            'results': results[:100]  # Return first 100 results
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Bulk add failed: {str(e)}'}), 500
+
+@app.route('/api/worker-status', methods=['GET'])
+def get_worker_status():
+    """Get Celery worker status"""
+    try:
+        # Get active workers
+        inspect = celery_app.control.inspect()
+        
+        # Get worker stats
+        stats = inspect.stats()
+        active_tasks = inspect.active()
+        scheduled_tasks = inspect.scheduled()
+        
+        worker_info = []
+        if stats:
+            for worker_name, worker_stats in stats.items():
+                worker_info.append({
+                    'worker': worker_name,
+                    'status': 'online',
+                    'processed_tasks': worker_stats.get('total', {}).get('tasks.total', 0),
+                    'active_tasks': len(active_tasks.get(worker_name, [])),
+                    'scheduled_tasks': len(scheduled_tasks.get(worker_name, [])),
+                    'load_avg': worker_stats.get('rusage', {}).get('utime', 0)
+                })
+        
+        return jsonify({
+            'workers': worker_info,
+            'total_workers': len(worker_info),
+            'broker_url': celery_app.conf.broker_url.replace(celery_app.conf.broker_url.split('@')[0].split('://')[1], '***') if '@' in celery_app.conf.broker_url else celery_app.conf.broker_url,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to get worker status: {str(e)}',
+            'workers': [],
+            'total_workers': 0
+        })
+
 
 if __name__ == '__main__':
     with app.app_context():
