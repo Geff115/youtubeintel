@@ -27,7 +27,7 @@ def get_redis_config():
             # For UPSTASH, we need to be more careful with SSL and connection settings
             return {
                 'host': parsed.hostname,
-                'port': parsed.port or 6379,
+                'port': 31889,
                 'password': upstash_token,
                 'ssl': True,  # UPSTASH requires SSL
                 'ssl_cert_reqs': None,  # Don't verify SSL certificates
@@ -36,10 +36,6 @@ def get_redis_config():
                 'socket_connect_timeout': 15,  # Longer timeout for cloud connection
                 'socket_timeout': 15,
                 'retry_on_timeout': True,
-                'connection_pool_class_kwargs': {
-                    'max_connections': 10,
-                    'retry_on_timeout': True
-                }
             }
         except Exception as e:
             print(f"⚠️  Failed to parse UPSTASH URL, falling back to local: {e}")
@@ -68,36 +64,18 @@ def get_local_redis_config():
     }
 
 def get_upstash_config(upstash_url, upstash_token):
-    """Get UPSTASH specific configuration"""
-    import urllib.parse
+    """Get UPSTASH specific configuration - auto-generated from successful test"""
     
-    # UPSTASH URLs can be https:// or redis://
-    if upstash_url.startswith('https://'):
-        # Extract hostname from https URL
-        parsed = urllib.parse.urlparse(upstash_url)
-        hostname = parsed.hostname
-        port = 6379  # Standard Redis port
-    else:
-        # Handle redis:// or rediss:// URLs
-        parsed = urllib.parse.urlparse(upstash_url)
-        hostname = parsed.hostname
-        port = parsed.port or 6379
+    # Extract hostname from URL
+    hostname = upstash_url.replace('https://', '').replace('http://', '')
     
+    # Use the simple working configuration from the test
     return {
         'host': hostname,
-        'port': port,
+        'port': 31889,  # UPSTASH Redis port
         'password': upstash_token,
-        'ssl': True,  # UPSTASH always uses SSL
-        'ssl_cert_reqs': None,
-        'ssl_check_hostname': False,
-        'decode_responses': True,
-        'socket_connect_timeout': 20,
-        'socket_timeout': 20,
-        'retry_on_timeout': True,
-        'connection_pool_class_kwargs': {
-            'max_connections': 5,
-            'retry_on_timeout': True
-        }
+        'ssl': True,
+        'decode_responses': True
     }
     """Get local Redis configuration"""
     redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
@@ -138,19 +116,14 @@ def get_celery_broker_url():
     # Try UPSTASH first if available
     if upstash_url and upstash_token and upstash_url != 'your_upstash_redis_url_here':
         try:
-            import urllib.parse
-            parsed = urllib.parse.urlparse(upstash_url)
+            # Extract hostname from URL
+            hostname = upstash_url.replace('https://', '').replace('http://', '')
             
-            # Construct broker URL for Celery
-            if parsed.scheme == 'rediss':
-                # Use secure connection
-                broker_url = f"rediss://:{upstash_token}@{parsed.hostname}:{parsed.port or 6379}/0"
-            else:
-                # Use regular connection
-                broker_url = f"redis://:{upstash_token}@{parsed.hostname}:{parsed.port or 6379}/0"
-            
-            print(f"🔗 Celery broker: UPSTASH Redis ({parsed.scheme})")
+            # Use secure rediss:// URL (this worked in our test)
+            broker_url = f"rediss://:{upstash_token}@{hostname}:31889/0"
+            print(f"🔗 Celery broker: UPSTASH Redis (secure)")
             return broker_url
+            
         except Exception as e:
             print(f"⚠️  Failed to configure UPSTASH for Celery: {e}")
     

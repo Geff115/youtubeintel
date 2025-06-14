@@ -35,14 +35,31 @@ celery_app = Celery('youtube_processor')
 # Get broker URL (handles both local and UPSTASH Redis)
 broker_url = get_celery_broker_url()
 
+# Optional SSL config for rediss://
+import ssl
+broker_use_ssl = None
+redis_backend_use_ssl = None
+if broker_url.startswith('rediss://'):
+    ssl_config = {
+        # Use CERT_REQUIRED for secure connections in production.
+        # Could be changed to CERT_NONE if having cert verification issues.
+        'ssl_cert_reqs': ssl.CERT_REQUIRED
+    }
+    broker_use_ssl = ssl_config
+    redis_backend_use_ssl = ssl_config
+    print("✅ Using SSL with CERT_REQUIRED for Redis")
+
 celery_app.conf.update(
     broker_url=broker_url,
     result_backend=broker_url,
+    broker_use_ssl=broker_use_ssl,
+    redis_backend_use_ssl=redis_backend_use_ssl,
     task_serializer='json',
     accept_content=['json'],
     result_serializer='json',
     timezone='UTC',
     enable_utc=True,
+    broker_connection_retry_on_startup=True, # Retry connection on startup
     worker_prefetch_multiplier=1,  # Better for production
     task_acks_late=True,  # Acknowledge after task completion
     worker_max_tasks_per_child=1000,  # Restart workers periodically

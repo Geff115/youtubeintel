@@ -1,35 +1,7 @@
-🔗 Celery broker: Local Redis
- * Serving Flask app 'app'
- * Debug mode: on
-INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
- * Running on all addresses (0.0.0.0)
- * Running on http://127.0.0.1:5000
- * Running on http://172.27.26.125:5000
-INFO:werkzeug:[33mPress CTRL+C to quit[0m
-INFO:werkzeug: * Restarting with stat
-WARNING:werkzeug: * Debugger is active!
-INFO:werkzeug: * Debugger PIN: 320-485-649
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:08:27] "GET /health HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:08:27] "GET /api/system-status HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:08:27] "GET /api/redis-test HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:09:03] "GET /api/system-status HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:09:16] "GET /api/redis-test HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:09:31] "GET /api/worker-status HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:09:46] "POST /api/batch-metadata HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:09:58] "GET /api/jobs HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:10:47] "POST /api/bulk-add-channels HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:11:23] "POST /api/batch-metadata HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [13/Jun/2025 09:11:41] "POST /api/batch-videos HTTP/1.1" 200 -
-INFO:werkzeug: * Detected change in '/home/gabriel/youtube-channel-aggregator/app/app.py', reloading
-🔗 Celery broker: Local Redis
-🏠 Using local Redis (no UPSTASH credentials or development mode)
-✅ Redis connection successful
-🏠 Using local Redis (no UPSTASH credentials or development mode)
-✅ Redis connection successful
-🏠 Using local Redis (no UPSTASH credentials or development mode)
-✅ Redis connection successful
-🏠 Using local Redis (no UPSTASH credentials or development mode)
-✅ Redis connection successful
-INFO:werkzeug: * Restarting with stat
-WARNING:werkzeug: * Debugger is active!
-INFO:werkzeug: * Debugger PIN: 320-485-649
+[2025-06-14 05:36:49 +0100] [19090] [INFO] Starting gunicorn 21.2.0
+[2025-06-14 05:36:49 +0100] [19090] [INFO] Listening at: http://0.0.0.0:5000 (19090)
+[2025-06-14 05:36:49 +0100] [19090] [INFO] Using worker: sync
+[2025-06-14 05:36:49 +0100] [19092] [INFO] Booting worker with pid: 19092
+[2025-06-14 05:36:49 +0100] [19093] [INFO] Booting worker with pid: 19093
+[2025-06-14 05:36:49 +0100] [19094] [INFO] Booting worker with pid: 19094
+[2025-06-14 05:36:49 +0100] [19095] [INFO] Booting worker with pid: 19095

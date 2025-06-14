@@ -1,5 +1,6 @@
-Stale pidfile exists - Removing it.
-[2025-06-13 09:08:15,219: INFO/MainProcess] beat: Starting...
-[2025-06-13 09:08:15,250: INFO/MainProcess] Scheduler: Sending due task monitor_system_health (tasks.monitor_system_health)
-[2025-06-13 09:08:15,261: INFO/MainProcess] Scheduler: Sending due task reset-api-quotas (tasks.reset_api_quotas)
-[2025-06-13 09:13:15,388: INFO/MainProcess] Scheduler: Sending due task monitor_system_health (tasks.monitor_system_health)
+[2025-06-14 05:36:45,404: INFO/MainProcess] beat: Starting...
+[2025-06-14 05:36:46,389: INFO/MainProcess] Scheduler: Sending due task monitor_system_health (tasks.monitor_system_health)
+[2025-06-14 05:36:48,876: INFO/MainProcess] Scheduler: Sending due task reset-api-quotas (tasks.reset_api_quotas)
+[2025-06-14 05:36:49,139: INFO/MainProcess] Scheduler: Sending due task cleanup_old_jobs (tasks.cleanup_old_jobs)
+[2025-06-14 05:41:45,463: INFO/MainProcess] Scheduler: Sending due task monitor_system_health (tasks.monitor_system_health)
+[2025-06-14 05:46:45,609: INFO/MainProcess] Scheduler: Sending due task monitor_system_health (tasks.monitor_system_health)
