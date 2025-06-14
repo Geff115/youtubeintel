@@ -137,3 +137,53 @@ DETAIL:  Key (channel_id)=(UCc_ycus0q7DSd85ZkmEY5ig) already exists.
 [2025-06-14 05:47:53,493: INFO/ForkPoolWorker-4] Batch 1 completed. Progress: 2/2 (100.0%)
 [2025-06-14 05:47:55,259: INFO/ForkPoolWorker-4] Batch processing completed: 2 channels processed
 [2025-06-14 05:47:55,690: INFO/ForkPoolWorker-4] Task tasks.batch_process_channels[1565c751-f379-4f4c-8304-bc36cdb1b84c] succeeded in 3.31217259999994s: {'status': 'completed', 'total_processed': 2, 'batches_completed': 1}
+[2025-06-14 07:24:19,885: WARNING/MainProcess] consumer: Connection to broker lost. Trying to re-establish the connection...
+Traceback (most recent call last):
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py", line 336, in start
+    blueprint.start(self)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/bootsteps.py", line 116, in start
+    step.start(parent)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py", line 726, in start
+    c.loop(*c.loop_args())
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/loops.py", line 97, in asynloop
+    next(loop)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/kombu/asynchronous/hub.py", line 373, in create_loop
+    cb(*cbargs)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/kombu/transport/redis.py", line 1359, in on_readable
+    self.cycle.on_readable(fileno)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/kombu/transport/redis.py", line 576, in on_readable
+    chan.handlers[type]()
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/kombu/transport/redis.py", line 974, in _brpop_read
+    dest__item = self.client.parse_response(self.client.connection,
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/client.py", line 1286, in parse_response
+    response = connection.read_response()
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/connection.py", line 882, in read_response
+    response = self._parser.read_response(disable_decoding=disable_decoding)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/connection.py", line 349, in read_response
+    result = self._read_response(disable_decoding=disable_decoding)
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/connection.py", line 359, in _read_response
+    raw = self._buffer.readline()
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/connection.py", line 262, in readline
+    self._read_from_socket()
+  File "/home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/redis/connection.py", line 215, in _read_from_socket
+    raise ConnectionError(SERVER_CLOSED_CONNECTION_ERROR)
+redis.exceptions.ConnectionError: Connection closed by server.
+[2025-06-14 07:24:22,130: WARNING/MainProcess] /home/gabriel/youtube-channel-aggregator/venv/lib/python3.10/site-packages/celery/worker/consumer/consumer.py:386: CPendingDeprecationWarning: 
+In Celery 5.1 we introduced an optional breaking change which
+on connection loss cancels all currently executed tasks with late acknowledgement enabled.
+These tasks cannot be acknowledged as the connection is gone, and the tasks are automatically redelivered
+back to the queue. You can enable this behavior using the worker_cancel_long_running_tasks_on_connection_loss
+setting. In Celery 5.1 it is set to False by default. The setting will be set to True by default in Celery 6.0.
+
+  warnings.warn(CANCEL_TASKS_BY_DEFAULT, CPendingDeprecationWarning)
+
+[2025-06-14 07:24:24,588: INFO/MainProcess] Connected to rediss://:**@gusc1-moved-kangaroo-31889.upstash.io:31889/0
+[2025-06-14 07:24:25,494: INFO/MainProcess] mingle: searching for neighbors
+
+worker: Hitting Ctrl+C again will terminate all running tasks!
+
+worker: Warm shutdown (MainProcess)
+
+worker: Warm shutdown (MainProcess)
+
+worker: Warm shutdown (MainProcess)

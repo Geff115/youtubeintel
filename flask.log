@@ -5,3 +5,32 @@
 [2025-06-14 05:36:49 +0100] [19093] [INFO] Booting worker with pid: 19093
 [2025-06-14 05:36:49 +0100] [19094] [INFO] Booting worker with pid: 19094
 [2025-06-14 05:36:49 +0100] [19095] [INFO] Booting worker with pid: 19095
+[2025-06-14 07:29:47 +0100] [19090] [CRITICAL] WORKER TIMEOUT (pid:19095)
+[2025-06-14 07:29:47 +0100] [19095] [INFO] Worker exiting (pid: 19095)
+🔗 Celery broker: UPSTASH Redis (secure)
+✅ Using SSL with CERT_REQUIRED for Redis
+🌐 Using UPSTASH Redis (credentials found)
+✅ Redis connection successful
+🌐 Using UPSTASH Redis (credentials found)
+✅ Redis connection successful
+🌐 Using UPSTASH Redis (credentials found)
+✅ Redis connection successful
+🌐 Using UPSTASH Redis (credentials found)
+✅ Redis connection successful
+[2025-06-14 07:29:47 +0100] [19090] [ERROR] Worker (pid:19095) exited with code 1
+[2025-06-14 07:29:47 +0100] [19090] [ERROR] Worker (pid:19095) exited with code 1.
+[2025-06-14 07:29:47 +0100] [16073] [INFO] Booting worker with pid: 16073
+[2025-06-14 07:32:07 +0100] [19090] [INFO] Handling signal: int
+[2025-06-14 07:32:07 +0100] [19092] [INFO] Worker exiting (pid: 19092)
+[2025-06-14 07:32:07 +0100] [19093] [INFO] Worker exiting (pid: 19093)
+🔗 Celery broker: UPSTASH Redis (secure)
+✅ Using SSL with CERT_REQUIRED for Redis
+🔗 Celery broker: UPSTASH Redis (secure)
+✅ Using SSL with CERT_REQUIRED for Redis
+[2025-06-14 07:32:07 +0100] [16073] [INFO] Worker exiting (pid: 16073)
+🔗 Celery broker: UPSTASH Redis (secure)
+✅ Using SSL with CERT_REQUIRED for Redis
+[2025-06-14 07:32:07 +0100] [19094] [INFO] Worker exiting (pid: 19094)
+🔗 Celery broker: UPSTASH Redis (secure)
+✅ Using SSL with CERT_REQUIRED for Redis
+[2025-06-14 07:32:07 +0100] [19090] [INFO] Shutting down: Master
