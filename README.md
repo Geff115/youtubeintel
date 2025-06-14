@@ -1,6 +1,6 @@
 # YouTube Channel Data Aggregation System
 A production-ready, scalable system for processing millions of YouTube channels.
-handle 5-15M channel IDs with comprehensive metadata fetching, video analysis, and intelligent channel discovery.
+Handle 5-15M channel IDs with comprehensive metadata fetching, video analysis, and intelligent channel discovery.
 
 ## 🚀 Features
 ### Core Capabilities
@@ -19,25 +19,35 @@ handle 5-15M channel IDs with comprehensive metadata fetching, video analysis, a
 
 ## 🏗️ Architecture
 
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Flask API     │    │   Celery        │    │   PostgreSQL    │
-│   (Port 5000)   │◄──►│   Workers       │◄──►│   Database      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   UPSTASH       │    │   YouTube API   │    │   Discovery     │
-│   Redis         │    │   Integration   │    │   Services      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+                        ┌────────────────────┐
+                        │     Flask API      │
+                        │   (Port 5000)      │
+                        └────────┬───────────┘
+                                 │
+                                 ▼
+                        ┌────────┴──────────┐
+                        │     Celery        │
+                        │     Workers       │
+                        └────────┬──────────┘
+                                 │
+                                 ▼
+                        ┌────────┴──────────┐
+                        │   PostgreSQL DB   │
+                        └───────────────────┘
+
+    ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
+    │     UPSTASH        │     │   YouTube API       │     │   Discovery        │
+    │     Redis          │     │   Integration       │     │   Services         │
+    └────────────────────┘     └────────────────────┘     └────────────────────┘
 
 ## 📊 Performance
 
-| Operation | Scale | Processing Time* | API Calls |
-----------------------------------------------------
-| Channel Migration | 15M channels | 4-6 hours | 0 |
-| Metadata Fetching | 15M channels | 2-3 weeks | 15M |
-| Video Processing | 5M channels | 2-4 weeks | 10M |
-| Channel Discovery | 1M channels | 1-2 weeks | 2M |
+| Operation           | Scale         | Processing Time* | API Calls |
+|---------------------|---------------|------------------|-----------|
+| Channel Migration   | 15M channels  | 4–6 hours        | 0         |
+| Metadata Fetching   | 15M channels  | 2–3 weeks        | 15M       |
+| Video Processing    | 5M channels   | 2–4 weeks        | 10M       |
+| Channel Discovery   | 1M channels   | 1–2 weeks        | 2M        |
 
 *With 5+ API keys and optimized batch sizes
 
@@ -144,36 +154,43 @@ curl http://localhost:5000/api/redis-test
 ```
 
 ## 📖 API Documentation
-### System Endpoints
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| /health | GET | Application health check |
-| /api/stats | GET | Basic System statistics |
-| /api/system-status | GET | Comprehensive system status |
-| /api/redis-test | GET | Redis connection test |
-| /api/worker-status | GET | Celery worker information |
+### 🧪 System Endpoints
+| Endpoint            | Method | Description                      |
+|---------------------|--------|----------------------------------|
+| `/health`           | GET    | Application health check         |
+| `/api/stats`        | GET    | Basic system statistics          |
+| `/api/system-status`| GET    | Comprehensive system status      |
+| `/api/redis-test`   | GET    | Redis connection test            |
+| `/api/worker-status`| GET    | Celery worker information        |
 
-### Data Management
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| /api/channels | GET | List channels with pagination |
-| /api/jobs | GET | List processing jobs |
-| /api/jobs/{job_id} | GET | Get specific job status |
-| /api/api-keys | GET | List API keys (masked) |
+### 🔧 Data Management
+| Endpoint              | Method | Description                     |
+|-----------------------|--------|---------------------------------|
+| `/api/channels`       | GET    | List channels with pagination   |
+| `/api/jobs`           | GET    | List processing jobs            |
+| `/api/jobs/{job_id}`  | GET    | Get specific job status         |
+| `/api/api-keys`       | GET    | List API keys (masked)          |
 
-### Batch Processing (Production Scale)
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| /api/batch-metadata | POST | Process metadata for millions of channels |
-| /api/batch-videos | POST | Fetch videos for channels with metadata |
-| /api/batch-discovery | POST | Discover related channels at scale |
-| /api/migrate | POST | Import millions of channel IDs |
+### 📦 Batch Processing (Production Scale)
+| Endpoint               | Method | Description                                |
+|------------------------|--------|--------------------------------------------|
+| `/api/batch-metadata`  | POST   | Process metadata for millions of channels  |
+| `/api/batch-videos`    | POST   | Fetch videos for channels with metadata    |
+| `/api/batch-discovery` | POST   | Discover related channels at scale         |
+| `/api/migrate`         | POST   | Import millions of channel IDs             |
 
-### Bulk Operations
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| /api/bulk-add-channels | POST | Add channels in bulk from JSON |
-| /api/test-youtube | POST | Test YouTube API connectivity |
+### 📂 Bulk Operations
+| Endpoint                  | Method | Description                        |
+|---------------------------|--------|------------------------------------|
+| `/api/bulk-add-channels` | POST   | Add channels in bulk from JSON     |
+| `/api/test-youtube`      | POST   | Test YouTube API connectivity      |
+
+### 🎯 Job Monitoring
+| Use Case             | Example Command                                               |
+|----------------------|---------------------------------------------------------------|
+| List all jobs        | `curl http://localhost:5000/api/jobs`                         |
+| Get job by ID        | `curl http://localhost:5000/api/jobs/{job-id}`                |
+| Filter by status     | `curl "http://localhost:5000/api/jobs?status=running"`        |
 
 ## 🎯 Usage Examples
 ### Basic Operations
