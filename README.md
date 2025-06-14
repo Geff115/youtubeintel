@@ -4,18 +4,18 @@ Handle 5-15M channel IDs with comprehensive metadata fetching, video analysis, a
 
 ## 🚀 Features
 ### Core Capabilities
-**Mass Data Processing: Handle 5-15M YouTube channel IDs efficiently**
-**YouTube API Integration: Fetch comprehensive metadata and video data**
-**Intelligent Discovery: Find related channels using multiple methods**
-**Cloud-Ready Architecture: UPSTASH Redis for global deployment**
-**Real-time Monitoring: Track processing progress and system health**
+- **Mass Data Processing: Handle 5-15M YouTube channel IDs efficiently**
+- **YouTube API Integration: Fetch comprehensive metadata and video data**
+- **Intelligent Discovery: Find related channels using multiple methods**
+- **Cloud-Ready Architecture: UPSTASH Redis for global deployment**
+- **Real-time Monitoring: Track processing progress and system health**
 
 ### Advanced Features
-**Smart API Key Rotation: Automatic quota management across multiple keys**
-**Batch Processing: Configurable batch sizes for optimal performance**
-**Error Recovery: Robust handling with automatic retry mechanisms**
-**Language Detection: Automatic content language identification**
-**Scalable Workers: Celery-based async processing with horizontal scaling**
+- **Smart API Key Rotation: Automatic quota management across multiple keys**
+- **Batch Processing: Configurable batch sizes for optimal performance**
+- **Error Recovery: Robust handling with automatic retry mechanisms**
+- **Language Detection: Automatic content language identification**
+- **Scalable Workers: Celery-based async processing with horizontal scaling**
 
 ## 🏗️ Architecture
 
@@ -52,20 +52,20 @@ Handle 5-15M channel IDs with comprehensive metadata fetching, video analysis, a
 *With 5+ API keys and optimized batch sizes
 
 ## Technology Stack
-**Backend: Python 3.11+, Flask**
-**Database: PostgreSQL 15+ with optimized indexing**
-**Message Broker: UPSTASH Redis (cloud) or local Redis**
-**Task Queue: Celery with Redis backend**
-**APIs: YouTube Data API v3, multiple discovery services**
-**Deployment: Docker, Docker Compose**
+- **Backend: Python 3.11+, Flask**
+- **Database: PostgreSQL 15+ with optimized indexing**
+- **Message Broker: UPSTASH Redis (cloud) or local Redis**
+- **Task Queue: Celery with Redis backend**
+- **APIs: YouTube Data API v3, multiple discovery services**
+- **Deployment: Docker, Docker Compose**
 
 ## 🚦 Quick Start
 
 ### Prerequisites
-**Python 3.11+**
-**PostgreSQL 15+**
-**Redis 6+ (or UPSTASH Redis account)**
-**YouTube Data API keys**
+- **Python 3.11+**
+- **PostgreSQL 15+**
+- **Redis 6+ (or UPSTASH Redis account)**
+- **YouTube Data API keys**
 
 ### 1. Clone and Setup
 ```bash
@@ -337,9 +337,9 @@ docker-compose logs -f app
 
 ### Production Deployment
 #### Cloud Platforms:
-**AWS ECS/EKS with UPSTASH Redis**
-**Google Cloud Run with Cloud Memorystore**
-**Azure Container Instances with Azure Cache for Redis**
+- **AWS ECS/EKS with UPSTASH Redis**
+- **Google Cloud Run with Cloud Memorystore**
+- **Azure Container Instances with Azure Cache for Redis**
 
 ### Configuration for scale:
 ```bash
@@ -381,10 +381,10 @@ curl http://localhost:5000/api/jobs/{job-id}
 ```
 
 ## Performance Metrics
-**API Quota Usage: Track across multiple YouTube API keys**
-**Processing Speed: Channels/videos processed per hour**
-**Error Rates: Failed requests and retry attempts**
-**Worker Performance: Task completion times and load**
+- **API Quota Usage: Track across multiple YouTube API keys**
+- **Processing Speed: Channels/videos processed per hour**
+- **Error Rates: Failed requests and retry attempts**
+- **Worker Performance: Task completion times and load**
 
 ## Performance Optimization
 ### For Large Datasets (10M+ channels):
