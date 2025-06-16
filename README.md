@@ -50,7 +50,7 @@
 | DB           | Supabase PostgreSQL, optimized indexing          |
 | Cache/Queue  | UPSTASH Redis (global)                           |
 | Email        | Resend API (HTML verification + password reset) |
-| Payments     | Korapay (Nigerian market optimized)              |
+| Payments     | Korapay (African market optimized)              |
 | Frontend     | Next.js 14, TypeScript, Tailwind, shadcn/ui      |
 | Deployment   | Vercel, Railway/Render (pending)                 |
 
