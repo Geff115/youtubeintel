@@ -226,3 +226,152 @@ class ChannelDiscovery(db.Model):
             'already_exists': self.already_exists,
             'created_at': self.created_at.isoformat()
         }
+
+class User(db.Model):
+    __tablename__ = 'users'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, nullable=False)
+    name = Column(String(255))
+    credits_balance = Column(Integer, default=25)  # Free tier: 25 credits
+    total_credits_purchased = Column(Integer, default=0)
+    
+    # Plan tracking
+    current_plan = Column(String(50), default='free')  # free, starter, professional, business, enterprise
+    last_free_credit_reset = Column(Date, default=datetime.utcnow().date())
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    credit_transactions = relationship("CreditTransaction", back_populates="user", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f'<User {self.email}: {self.credits_balance} credits>'
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'email': self.email,
+            'name': self.name,
+            'credits_balance': self.credits_balance,
+            'total_credits_purchased': self.total_credits_purchased,
+            'current_plan': self.current_plan,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+    
+    def can_afford(self, credits_needed: int) -> bool:
+        """Check if user has enough credits"""
+        return self.credits_balance >= credits_needed
+    
+    def deduct_credits(self, amount: int, description: str = "API usage"):
+        """Deduct credits and create transaction record"""
+        if not self.can_afford(amount):
+            raise ValueError(f"Insufficient credits. Need {amount}, have {self.credits_balance}")
+        
+        self.credits_balance -= amount
+        
+        # Create usage transaction
+        transaction = CreditTransaction(
+            user_id=self.id,
+            transaction_type='usage',
+            credits_amount=-amount,
+            description=description,
+            status='completed'
+        )
+        db.session.add(transaction)
+        return transaction
+    
+    def add_credits(self, amount: int, payment_reference: str = None, amount_usd: float = None, description: str = "Credits purchased"):
+        """Add credits and create transaction record"""
+        self.credits_balance += amount
+        self.total_credits_purchased += amount
+        
+        # Create purchase transaction
+        transaction = CreditTransaction(
+            user_id=self.id,
+            transaction_type='purchase',
+            credits_amount=amount,
+            payment_reference=payment_reference,
+            amount_usd=amount_usd,
+            description=description,
+            status='completed'
+        )
+        db.session.add(transaction)
+        return transaction
+    
+    def reset_free_credits(self):
+        """Reset free tier credits monthly"""
+        from datetime import date
+        today = date.today()
+        
+        if self.last_free_credit_reset < today:
+            if self.current_plan == 'free':
+                self.credits_balance = max(self.credits_balance, 25)  # Ensure at least 25 credits
+                self.last_free_credit_reset = today
+                
+                # Create reset transaction
+                transaction = CreditTransaction(
+                    user_id=self.id,
+                    transaction_type='free_reset',
+                    credits_amount=25,
+                    description="Monthly free credits reset",
+                    status='completed'
+                )
+                db.session.add(transaction)
+                return transaction
+        return None
+
+class CreditTransaction(db.Model):
+    __tablename__ = 'credit_transactions'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    transaction_type = Column(String(20), nullable=False)  # 'purchase', 'usage', 'refund', 'free_reset'
+    credits_amount = Column(Integer, nullable=False)  # Positive for purchase/reset, negative for usage
+    payment_reference = Column(String(255))  # Korapay reference for purchases
+    amount_usd = Column(Float)  # USD amount for purchases
+    description = Column(String(500))
+    status = Column(String(20), default='pending')  # 'pending', 'completed', 'failed', 'refunded'
+    
+    # Metadata for analytics
+    api_endpoint = Column(String(100))  # Which API was used (for usage transactions)
+    batch_size = Column(Integer)  # For batch operations
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="credit_transactions")
+    
+    def __repr__(self):
+        return f'<CreditTransaction {self.transaction_type}: {self.credits_amount} credits for {self.user.email}>'
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'user_id': str(self.user_id),
+            'transaction_type': self.transaction_type,
+            'credits_amount': self.credits_amount,
+            'payment_reference': self.payment_reference,
+            'amount_usd': self.amount_usd,
+            'description': self.description,
+            'status': self.status,
+            'api_endpoint': self.api_endpoint,
+            'batch_size': self.batch_size,
+            'created_at': self.created_at.isoformat()
+        }
+
+# Credit cost configuration
+CREDIT_COSTS = {
+    'channel_discovery': 1,        # 1 credit per channel discovered
+    'channel_metadata': 2,         # 2 credits for full channel analysis  
+    'batch_process_100': 5,        # 5 credits for processing 100 channels
+    'video_analysis': 1,           # 1 credit per video analyzed
+    'export_data': 1,              # 1 credit for data export
+}
+
+def calculate_credits_needed(operation: str, quantity: int = 1) -> int:
+    """Calculate credits needed for an operation"""
+    base_cost = CREDIT_COSTS.get(operation, 1)
+    return base_cost * quantity

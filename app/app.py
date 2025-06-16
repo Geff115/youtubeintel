@@ -2,12 +2,18 @@ from flask import Flask, request, jsonify
 import os
 from dotenv import load_dotenv
 import uuid
+import logging
 from datetime import datetime
+from payment_service import KorapayService, CREDIT_PACKAGES, get_package_by_credits
 
 load_dotenv()
 
 # Create Flask app
 app = Flask(__name__)
+
+# Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://youtube:youtube123@localhost:5432/youtube_channels')
@@ -815,6 +821,322 @@ def get_worker_status():
             'workers': [],
             'total_workers': 0
         })
+
+@app.route('/api/credit-packages', methods=['GET'])
+def get_credit_packages():
+    """Get available credit packages (Korapay-friendly)"""
+    from payment_service import KORAPAY_PACKAGES
+    
+    return jsonify({
+        'packages': KORAPAY_PACKAGES,
+        'free_tier': {
+            'credits': 25, 
+            'renewable': 'monthly',
+            'description': 'Free tier includes 25 credits per month'
+        },
+        'pricing_notes': {
+            'currency': 'USD',
+            'channel_discovery': '1 credit per channel',
+            'full_analysis': '2 credits per channel (metadata + videos)',
+            'batch_processing': '5 credits per 100 channels',
+            'payment_info': 'Payments processed in Nigerian Naira (NGN) via Korapay',
+            'max_single_purchase': 'Maximum $12.50 per transaction due to payment processor limits'
+        },
+        'larger_packages': {
+            'note': 'For larger credit purchases, please contact us for bank transfer options',
+            'email': 'sales@youtubeintel.com',
+            'enterprise_pricing': 'Custom pricing available for 1000+ credits'
+        }
+    })
+
+@app.route('/api/user/<email>/credits', methods=['GET'])
+def get_user_credits(email):
+    """Get user's credit balance and transaction history"""
+    try:
+        # Import here to avoid circular imports
+        from models import User, CreditTransaction
+        
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            # Create new user with free tier credits
+            user = User(
+                email=email, 
+                name=email.split('@')[0].title(),
+                credits_balance=25  # Free tier
+            )
+            db.session.add(user)
+            db.session.commit()
+        
+        # Get recent transactions
+        recent_transactions = CreditTransaction.query.filter_by(
+            user_id=user.id
+        ).order_by(CreditTransaction.created_at.desc()).limit(10).all()
+        
+        return jsonify({
+            'user': {
+                'email': user.email,
+                'name': user.name,
+                'credits_balance': user.credits_balance,
+                'total_purchased': user.total_credits_purchased,
+                'created_at': user.created_at.isoformat()
+            },
+            'transactions': [{
+                'id': str(t.id),
+                'type': t.transaction_type,
+                'amount': t.credits_amount,
+                'description': t.description,
+                'status': t.status,
+                'payment_reference': t.payment_reference,
+                'amount_usd': t.amount_usd,
+                'created_at': t.created_at.isoformat()
+            } for t in recent_transactions]
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting user credits: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/purchase-credits', methods=['POST'])
+def purchase_credits():
+    """Initiate credit purchase via Korapay"""
+    try:
+        data = request.get_json()
+        package_id = data.get('package_id')
+        customer_email = data.get('email')
+        
+        if not package_id or not customer_email:
+            return jsonify({'error': 'Package ID and email are required'}), 400
+        
+        if package_id not in CREDIT_PACKAGES:
+            return jsonify({'error': 'Invalid package ID'}), 400
+        
+        package = CREDIT_PACKAGES[package_id]
+        
+        # Initialize Korapay service
+        korapay = KorapayService()
+        
+        # Create checkout session
+        checkout = korapay.create_checkout_session(
+            amount_usd=package['price_usd'],
+            customer_email=customer_email,
+            credits=package['credits']
+        )
+        
+        if checkout['success']:
+            # Import models here to avoid circular imports
+            from models import User, CreditTransaction
+            
+            # Get or create user
+            user = User.query.filter_by(email=customer_email).first()
+            if not user:
+                user = User(
+                    email=customer_email, 
+                    name=customer_email.split('@')[0].title()
+                )
+                db.session.add(user)
+                db.session.flush()
+            
+            # Create pending transaction record
+            transaction = CreditTransaction(
+                user_id=user.id,
+                transaction_type='purchase',
+                credits_amount=package['credits'],
+                payment_reference=checkout['reference'],
+                amount_usd=package['price_usd'],
+                description=f"Purchase of {package['name']} ({package['credits']} credits)",
+                status='pending'
+            )
+            db.session.add(transaction)
+            db.session.commit()
+            
+            logger.info(f"Created pending transaction {checkout['reference']} for {customer_email}")
+            
+            return jsonify({
+                'success': True,
+                'checkout_url': checkout['checkout_url'],
+                'reference': checkout['reference'],
+                'package': {
+                    **package,
+                    'id': package_id
+                },
+                'amount_ngn': checkout['amount_ngn'],
+                'instructions': 'You will be redirected to Korapay to complete your payment'
+            })
+        else:
+            return jsonify(checkout), 400
+            
+    except Exception as e:
+        logger.error(f"Payment initiation failed: {str(e)}")
+        return jsonify({'error': f'Payment initiation failed: {str(e)}'}), 500
+
+@app.route('/api/webhooks/korapay', methods=['POST'])
+def korapay_webhook():
+    """Handle Korapay payment webhooks"""
+    try:
+        # Get signature from headers
+        signature = request.headers.get('X-Korapay-Signature', '')
+        payload = request.get_data(as_text=True)
+        
+        korapay = KorapayService()
+        
+        # Verify webhook signature
+        if not korapay.verify_webhook(payload, signature):
+            logger.warning("Invalid webhook signature received")
+            return jsonify({'error': 'Invalid signature'}), 400
+        
+        data = request.get_json()
+        event_type = data.get('event', '')
+        
+        logger.info(f"Received Korapay webhook: {event_type}")
+        
+        if event_type == 'charge.success':
+            reference = data['data']['reference']
+            amount = data['data']['amount']
+            
+            # Import models here
+            from models import User, CreditTransaction
+            
+            # Find pending transaction
+            transaction = CreditTransaction.query.filter_by(
+                payment_reference=reference,
+                status='pending'
+            ).first()
+            
+            if transaction:
+                # Update transaction status
+                transaction.status = 'completed'
+                
+                # Add credits to user account
+                transaction.user.credits_balance += transaction.credits_amount
+                transaction.user.total_credits_purchased += transaction.credits_amount
+                
+                db.session.commit()
+                
+                logger.info(f"✅ Payment successful: Added {transaction.credits_amount} credits to {transaction.user.email}")
+                
+                # You could send an email notification here
+                
+                return jsonify({
+                    'status': 'success',
+                    'message': 'Credits added successfully'
+                })
+            else:
+                logger.warning(f"Transaction not found for reference: {reference}")
+                return jsonify({'error': 'Transaction not found'}), 404
+                
+        elif event_type == 'charge.failed':
+            reference = data['data']['reference']
+            
+            # Import models here
+            from models import CreditTransaction
+            
+            # Update transaction status
+            transaction = CreditTransaction.query.filter_by(
+                payment_reference=reference,
+                status='pending'
+            ).first()
+            
+            if transaction:
+                transaction.status = 'failed'
+                db.session.commit()
+                
+                logger.info(f"❌ Payment failed for reference: {reference}")
+        
+        return jsonify({'status': 'received'})
+        
+    except Exception as e:
+        logger.error(f"Webhook processing error: {str(e)}")
+        return jsonify({'error': 'Webhook processing failed'}), 500
+
+@app.route('/api/verify-payment/<reference>', methods=['GET'])
+def verify_payment(reference):
+    """Manually verify a payment status"""
+    try:
+        korapay = KorapayService()
+        result = korapay.verify_payment(reference)
+        
+        if result['success']:
+            # Import models here
+            from models import CreditTransaction
+            
+            # Check our database
+            transaction = CreditTransaction.query.filter_by(
+                payment_reference=reference
+            ).first()
+            
+            if transaction:
+                return jsonify({
+                    'korapay_status': result['status'],
+                    'database_status': transaction.status,
+                    'credits': transaction.credits_amount,
+                    'amount_usd': transaction.amount_usd,
+                    'customer': transaction.user.email,
+                    'created_at': transaction.created_at.isoformat()
+                })
+            else:
+                return jsonify({
+                    'error': 'Transaction not found in database',
+                    'korapay_status': result['status']
+                }), 404
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        logger.error(f"Payment verification error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/deduct-credits', methods=['POST'])
+def deduct_credits():
+    """Deduct credits for API usage (internal endpoint)"""
+    try:
+        data = request.get_json()
+        user_email = data.get('email')
+        credits_to_deduct = data.get('credits', 1)
+        operation = data.get('operation', 'api_usage')
+        
+        if not user_email:
+            return jsonify({'error': 'Email required'}), 400
+        
+        # Import models here
+        from models import User, CreditTransaction
+        
+        user = User.query.filter_by(email=user_email).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        if user.credits_balance < credits_to_deduct:
+            return jsonify({
+                'error': 'Insufficient credits',
+                'current_balance': user.credits_balance,
+                'required': credits_to_deduct
+            }), 402  # Payment Required
+        
+        # Deduct credits
+        user.credits_balance -= credits_to_deduct
+        
+        # Record transaction
+        transaction = CreditTransaction(
+            user_id=user.id,
+            transaction_type='usage',
+            credits_amount=-credits_to_deduct,  # Negative for usage
+            description=f"Credits used for {operation}",
+            status='completed'
+        )
+        db.session.add(transaction)
+        db.session.commit()
+        
+        logger.info(f"Deducted {credits_to_deduct} credits from {user_email} for {operation}")
+        
+        return jsonify({
+            'success': True,
+            'credits_deducted': credits_to_deduct,
+            'remaining_balance': user.credits_balance,
+            'operation': operation
+        })
+        
+    except Exception as e:
+        logger.error(f"Credit deduction error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
