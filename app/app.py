@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import os
 from dotenv import load_dotenv
 import uuid
@@ -10,6 +11,13 @@ load_dotenv()
 
 # Create Flask app
 app = Flask(__name__)
+
+# CORS configuration for frontend
+CORS(app, origins=[
+    "http://localhost:3000",  # Local development
+    "https://youtubeintel.vercel.app",  # Production frontend
+    os.getenv('FRONTEND_URL', 'http://localhost:3000')
+], supports_credentials=True)
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -27,8 +35,12 @@ db = init_db(app)
 # Import Redis configuration
 from redis_config import test_redis_connection
 
+# Import authentication (with proper imports)
+from auth import token_required, admin_required, validate_input
+from rate_limiter import rate_limit, rate_limiter
+
 # Import models after database is initialized
-from models import Channel, Video, APIKey, ProcessingJob, ChannelDiscovery
+from models import Channel, Video, APIKey, ProcessingJob, ChannelDiscovery, User, CreditTransaction, UserSession, APIUsageLog
 
 # Import tasks after models are set up
 from tasks import (
@@ -40,6 +52,10 @@ from tasks import (
     celery_app
 )
 
+# Register authentication blueprint
+from auth_routes import auth_bp
+app.register_blueprint(auth_bp)
+
 # Routes
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -47,29 +63,64 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat(),
-        'version': '1.0.0'
+        'version': '2.0.0',
+        'features': {
+            'authentication': True,
+            'rate_limiting': True,
+            'credit_system': True,
+            'google_oauth': bool(os.getenv('GOOGLE_CLIENT_ID')),
+            'email_service': bool(os.getenv('SMTP_USERNAME') or os.getenv('MAILGUN_API_KEY'))
+        }
     })
 
 @app.route('/api/stats', methods=['GET'])
+@token_required
+@rate_limit(credits_cost=0)
 def get_stats():
-    """Get system statistics"""
+    """Get system statistics (authenticated)"""
     try:
+        # Get user's stats
+        user_id = request.current_user['id']
+        user = db.session.get(User, user_id)
+        
+        # Basic system stats (limited for regular users)
         stats = {
             'total_channels': Channel.query.count(),
             'channels_with_metadata': Channel.query.filter_by(metadata_fetched=True).count(),
-            'channels_with_videos': Channel.query.filter_by(videos_fetched=True).count(),
             'total_videos': Video.query.count(),
-            'active_api_keys': APIKey.query.filter_by(is_active=True).count(),
-            'pending_jobs': ProcessingJob.query.filter_by(status='pending').count(),
-            'running_jobs': ProcessingJob.query.filter_by(status='running').count()
+            'user_stats': {
+                'credits_balance': user.credits_balance,
+                'total_credits_purchased': user.total_credits_purchased,
+                'current_plan': user.current_plan,
+                'api_usage_today': APIUsageLog.query.filter(
+                    APIUsageLog.user_id == user_id,
+                    APIUsageLog.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                ).count()
+            }
         }
+        
+        # Add admin stats if user is admin
+        if user.is_admin:
+            stats.update({
+                'active_api_keys': APIKey.query.filter_by(is_active=True).count(),
+                'pending_jobs': ProcessingJob.query.filter_by(status='pending').count(),
+                'running_jobs': ProcessingJob.query.filter_by(status='running').count(),
+                'total_users': User.query.count(),
+                'active_users_today': User.query.filter(
+                    User.last_activity >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                ).count()
+            })
+        
         return jsonify(stats)
     except Exception as e:
+        logger.error(f"Stats error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/channels', methods=['GET'])
+@token_required
+@rate_limit(credits_cost=1)
 def list_channels():
-    """List channels with pagination"""
+    """List channels with pagination (authenticated)"""
     try:
         page = int(request.args.get('page', 1))
         per_page = min(int(request.args.get('per_page', 20)), 100)
@@ -90,9 +141,10 @@ def list_channels():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/api-keys', methods=['GET'])
+@app.route('/api/admin/api-keys', methods=['GET'])
+@admin_required
 def list_api_keys():
-    """List API keys (masked for security)"""
+    """List API keys (admin only)"""
     try:
         keys = APIKey.query.all()
         return jsonify([{
@@ -109,13 +161,25 @@ def list_api_keys():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/jobs', methods=['GET'])
+@token_required
+@rate_limit(credits_cost=0)
 def list_jobs():
-    """List processing jobs"""
+    """List user's processing jobs"""
     try:
+        user_id = request.current_user['id']
+        user = User.query.get(user_id)
+        
         status = request.args.get('status')
         limit = int(request.args.get('limit', 50))
         
-        query = ProcessingJob.query
+        # Regular users see only their jobs, admins see all
+        if user.is_admin:
+            query = ProcessingJob.query
+        else:
+            # For now, show all jobs since we don't have user-specific jobs yet
+            # In the future, I might want to add user_id to ProcessingJob model
+            query = ProcessingJob.query
+        
         if status:
             query = query.filter_by(status=status)
         
@@ -135,6 +199,8 @@ def list_jobs():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/jobs/<job_id>', methods=['GET'])
+@token_required
+@rate_limit(credits_cost=0)
 def get_job_status(job_id):
     """Get processing job status"""
     try:
@@ -158,6 +224,122 @@ def get_job_status(job_id):
         return jsonify({'error': 'Invalid job ID format'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/discover-channels', methods=['POST'])
+@token_required
+@rate_limit(credits_cost=5)  # 5 credits for channel discovery
+def discover_channels():
+    """Discover related channels (authenticated with credits)"""
+    try:
+        data = request.get_json() or {}
+        source_channel_ids = data.get('channel_ids', [])
+        discovery_methods = data.get('methods', ['related_channels'])
+        limit = min(int(data.get('limit', 50)), 200)  # Max 200 channels
+        
+        if not source_channel_ids:
+            return jsonify({'error': 'At least one source channel ID is required'}), 400
+        
+        # Create processing job
+        job = ProcessingJob(
+            job_type='channel_discovery',
+            status='pending'
+        )
+        db.session.add(job)
+        db.session.commit()
+        
+        # Start async task
+        task = discover_related_channels.delay(
+            job_id=str(job.id),
+            source_channel_ids=source_channel_ids,
+            discovery_methods=discovery_methods,
+            limit=limit
+        )
+        
+        return jsonify({
+            'job_id': str(job.id),
+            'task_id': task.id,
+            'status': 'started',
+            'message': f'Channel discovery started for {len(source_channel_ids)} source channels',
+            'estimated_credits': len(source_channel_ids) * len(discovery_methods),
+            'discovery_methods': discovery_methods
+        })
+        
+    except Exception as e:
+        logger.error(f"Channel discovery error: {str(e)}")
+        return jsonify({'error': f'Failed to start channel discovery: {str(e)}'}), 500
+
+@app.route('/api/fetch-metadata', methods=['POST'])
+@token_required
+@rate_limit(credits_cost=10)  # 10 credits for metadata fetch
+def fetch_metadata():
+    """Fetch channel metadata (authenticated with credits)"""
+    try:
+        data = request.get_json() or {}
+        channel_ids = data.get('channel_ids', [])
+        limit = min(int(data.get('limit', 100)), 500)  # Max 500 channels
+        
+        # Create processing job
+        job = ProcessingJob(
+            job_type='metadata_fetch',
+            status='pending',
+            total_items=limit
+        )
+        db.session.add(job)
+        db.session.commit()
+        
+        # Start async task
+        task = fetch_channel_metadata.delay(
+            job_id=str(job.id),
+            channel_ids=channel_ids,
+            limit=limit
+        )
+        
+        return jsonify({
+            'job_id': str(job.id),
+            'task_id': task.id,
+            'status': 'started',
+            'message': f'Metadata fetch started for up to {limit} channels'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to start metadata fetch: {str(e)}'}), 500
+
+@app.route('/api/fetch-videos', methods=['POST'])
+@token_required
+@rate_limit(credits_cost=15)  # 15 credits for video fetch
+def fetch_videos():
+    """Fetch channel videos (authenticated with credits)"""
+    try:
+        data = request.get_json() or {}
+        channel_ids = data.get('channel_ids', [])
+        videos_per_channel = min(int(data.get('videos_per_channel', 50)), 100)
+        limit = min(int(data.get('limit', 100)), 200)
+        
+        # Create processing job
+        job = ProcessingJob(
+            job_type='video_fetch',
+            status='pending'
+        )
+        db.session.add(job)
+        db.session.commit()
+        
+        # Start async task
+        task = fetch_channel_videos.delay(
+            job_id=str(job.id),
+            channel_ids=channel_ids,
+            videos_per_channel=videos_per_channel,
+            limit=limit
+        )
+        
+        return jsonify({
+            'job_id': str(job.id),
+            'task_id': task.id,
+            'status': 'started',
+            'message': f'Video fetch started for up to {limit} channels'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to start video fetch: {str(e)}'}), 500
 
 @app.route('/api/test-youtube', methods=['POST'])
 def test_youtube_connection():
@@ -485,12 +667,14 @@ def test_redis():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/batch-metadata', methods=['POST'])
+@token_required
+@rate_limit(credits_cost=25)  # 25 credits for batch processing
 def start_batch_metadata():
-    """Start batch metadata processing for large volumes"""
+    """Start batch metadata processing (authenticated with credits)"""
     try:
         data = request.get_json() or {}
-        batch_size = data.get('batch_size', 1000)
-        total_limit = data.get('total_limit')  # Optional limit
+        batch_size = min(int(data.get('batch_size', 1000)), 5000)  # Max 5000 per batch
+        total_limit = data.get('total_limit')
         
         # Create processing job
         job = ProcessingJob(
@@ -520,11 +704,13 @@ def start_batch_metadata():
         return jsonify({'error': f'Failed to start batch processing: {str(e)}'}), 500
 
 @app.route('/api/batch-videos', methods=['POST'])
+@token_required
+@rate_limit(credits_cost=35)  # 35 credits for batch video processing
 def start_batch_videos():
-    """Start batch video processing for large volumes"""
+    """Start batch video processing (authenticated with credits)"""
     try:
         data = request.get_json() or {}
-        batch_size = data.get('batch_size', 500)  # Smaller batches for videos
+        batch_size = min(int(data.get('batch_size', 500)), 2000)
         total_limit = data.get('total_limit')
         
         # Create processing job
@@ -554,11 +740,13 @@ def start_batch_videos():
         return jsonify({'error': f'Failed to start batch processing: {str(e)}'}), 500
 
 @app.route('/api/batch-discovery', methods=['POST'])
+@token_required
+@rate_limit(credits_cost=50)  # 50 credits for batch discovery
 def start_batch_discovery():
-    """Start batch discovery processing for large volumes"""
+    """Start batch discovery processing (authenticated with credits)"""
     try:
         data = request.get_json() or {}
-        batch_size = data.get('batch_size', 100)  # Smaller batches for discovery
+        batch_size = min(int(data.get('batch_size', 100)), 500)
         total_limit = data.get('total_limit')
         
         # Create processing job
@@ -586,6 +774,70 @@ def start_batch_discovery():
         
     except Exception as e:
         return jsonify({'error': f'Failed to start batch processing: {str(e)}'}), 500
+
+@app.route('/api/user/profile', methods=['GET'])
+@token_required
+def get_user_profile():
+    """Get user profile information"""
+    try:
+        user_id = request.current_user['id']
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get usage stats
+        usage_stats = rate_limiter.get_current_usage(str(user.id), user.current_plan)
+        
+        # Get recent API usage
+        recent_usage = APIUsageLog.query.filter_by(user_id=user.id).order_by(
+            APIUsageLog.created_at.desc()
+        ).limit(10).all()
+        
+        return jsonify({
+            'user': user.to_dict(),
+            'usage_stats': usage_stats,
+            'recent_activity': [log.to_dict() for log in recent_usage]
+        })
+        
+    except Exception as e:
+        logger.error(f"Get profile error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/user/profile', methods=['PUT'])
+@token_required
+@rate_limit(credits_cost=0)
+def update_user_profile():
+    """Update user profile information"""
+    try:
+        user_id = request.current_user['id']
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        data = request.get_json() or {}
+        
+        # Update allowed fields
+        if 'first_name' in data:
+            user.first_name = data['first_name'].strip()
+        if 'last_name' in data:
+            user.last_name = data['last_name'].strip()
+        if 'display_name' in data:
+            user.display_name = data['display_name'].strip()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Profile updated successfully',
+            'user': user.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Profile update error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/migrate', methods=['POST'])
 def start_migration():
@@ -660,8 +912,9 @@ def start_legacy_metadata_fetch():
         return jsonify({'error': f'Failed to start metadata fetch: {str(e)}'}), 500
 
 @app.route('/api/system-status', methods=['GET'])
+@admin_required
 def get_system_status():
-    """Get comprehensive system status"""
+    """Get comprehensive system status (admin only)"""
     try:
         # Get basic stats
         stats = {
@@ -669,6 +922,10 @@ def get_system_status():
             'channels_with_metadata': Channel.query.filter_by(metadata_fetched=True).count(),
             'channels_with_videos': Channel.query.filter_by(videos_fetched=True).count(),
             'total_videos': Video.query.count(),
+            'total_users': User.query.count(),
+            'active_users_today': User.query.filter(
+                User.last_activity >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            ).count(),
             'active_api_keys': APIKey.query.filter_by(is_active=True).count(),
             'pending_jobs': ProcessingJob.query.filter_by(status='pending').count(),
             'running_jobs': ProcessingJob.query.filter_by(status='running').count(),
@@ -785,8 +1042,9 @@ def bulk_add_channels():
         return jsonify({'error': f'Bulk add failed: {str(e)}'}), 500
 
 @app.route('/api/worker-status', methods=['GET'])
+@admin_required
 def get_worker_status():
-    """Get Celery worker status"""
+    """Get Celery worker status (admin only)"""
     try:
         # Get active workers
         inspect = celery_app.control.inspect()
@@ -1138,10 +1396,47 @@ def deduct_credits():
         logger.error(f"Credit deduction error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+# Error handlers
+@app.errorhandler(401)
+def unauthorized(error):
+    return jsonify({'error': 'Authentication required'}), 401
+
+@app.errorhandler(403)
+def forbidden(error):
+    return jsonify({'error': 'Access forbidden'}), 403
+
+@app.errorhandler(429)
+def ratelimit_handler(error):
+    return jsonify({'error': 'Rate limit exceeded', 'retry_after': 60}), 429
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     with app.app_context():
         # Create tables if they don't exist
         db.create_all()
+        
+        # Create default admin user if it doesn't exist
+        admin_email = os.getenv('ADMIN_EMAIL')
+        if admin_email:
+            admin_user = User.query.filter_by(email=admin_email).first()
+            if not admin_user:
+                admin_user = User(
+                    email=admin_email,
+                    first_name='Gabriel',
+                    last_name='Effangha',
+                    auth_method='email',
+                    is_admin=True,
+                    is_active=True,
+                    email_verified=True,
+                    credits_balance=10000  # Give admin lots of credits
+                )
+                admin_user.set_password(os.getenv('ADMIN_PASSWORD'))
+                db.session.add(admin_user)
+                db.session.commit()
+                logger.info(f"Created admin user: {admin_email}")
     
     app.run(host='0.0.0.0', port=5000, debug=True)

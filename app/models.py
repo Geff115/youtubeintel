@@ -170,6 +170,7 @@ class User(db.Model):
     def generate_reset_token(self):
         """Generate password reset token"""
         from auth import auth_service
+        from datetime import timedelta, datetime
         self.reset_token = auth_service.generate_reset_token()
         self.reset_token_expires = datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
         return self.reset_token
@@ -177,6 +178,7 @@ class User(db.Model):
     def generate_verification_token(self):
         """Generate email verification token"""
         from auth import auth_service
+        from datetime import timedelta, datetime
         self.verification_token = auth_service.generate_reset_token()
         self.verification_token_expires = datetime.utcnow() + timedelta(hours=24)  # 24 hour expiry
         return self.verification_token
@@ -193,6 +195,7 @@ class User(db.Model):
     
     def create_session(self, refresh_token: str):
         """Create new user session"""
+        from datetime import timedelta, datetime
         self.refresh_token = refresh_token
         self.refresh_token_expires = datetime.utcnow() + timedelta(days=30)
         self.last_login = datetime.utcnow()
@@ -205,6 +208,7 @@ class User(db.Model):
     
     def is_session_valid(self) -> bool:
         """Check if current session is valid"""
+        from datetime import datetime
         if not self.refresh_token or not self.refresh_token_expires:
             return False
         return datetime.utcnow() < self.refresh_token_expires
@@ -243,10 +247,12 @@ class UserSession(db.Model):
     
     def update_activity(self):
         """Update session activity"""
+        from datetime import datetime
         self.last_activity = datetime.utcnow()
     
     def is_expired(self) -> bool:
         """Check if session is expired"""
+        from datetime import datetime
         return datetime.utcnow() > self.expires_at
     
     def deactivate(self):

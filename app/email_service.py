@@ -30,6 +30,9 @@ class EmailService:
         self.app_url = os.getenv('APP_URL', 'http://localhost:5000')
         self.frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
         
+        # Resend (recommended for production)
+        self.resend_api_key = os.getenv('RESEND_API_KEY')
+        
         # Alternative: Mailgun (if configured)
         self.mailgun_api_key = os.getenv('MAILGUN_API_KEY')
         self.mailgun_domain = os.getenv('MAILGUN_DOMAIN')
@@ -39,6 +42,7 @@ class EmailService:
         
         # Check if email is configured
         self.is_configured = bool(
+            self.resend_api_key or
             (self.smtp_username and self.smtp_password) or 
             (self.mailgun_api_key and self.mailgun_domain) or 
             self.sendgrid_api_key
@@ -55,8 +59,12 @@ class EmailService:
             return False
         
         try:
-            # Try Mailgun first (most reliable for production)
-            if self.mailgun_api_key and self.mailgun_domain:
+            # Try Resend first (most reliable and modern)
+            if self.resend_api_key:
+                return self._send_resend(to_email, subject, html_content, text_content)
+            
+            # Try Mailgun
+            elif self.mailgun_api_key and self.mailgun_domain:
                 return self._send_mailgun(to_email, subject, html_content, text_content)
             
             # Try SendGrid
@@ -73,6 +81,48 @@ class EmailService:
                 
         except Exception as e:
             logger.error(f"Email sending failed: {str(e)}")
+            return False
+    
+    def _send_resend(self, to_email: str, subject: str, html_content: str, 
+                     text_content: Optional[str] = None) -> bool:
+        """Send email via Resend (recommended)"""
+        try:
+            url = "https://api.resend.com/emails"
+            
+            # Prepare email data
+            email_data = {
+                "from": f"{self.from_name} <notifications@youtubeintel.com>",  # Use your verified domain
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content
+            }
+            
+            # Add text content if provided
+            if text_content:
+                email_data["text"] = text_content
+            
+            # Set headers
+            headers = {
+                "Authorization": f"Bearer {self.resend_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # Send request
+            response = requests.post(url, headers=headers, json=email_data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                email_id = result.get('id', 'unknown')
+                logger.info(f"Email sent successfully via Resend to: {to_email} (ID: {email_id})")
+                return True
+            else:
+                error_data = response.json() if response.headers.get('content-type') == 'application/json' else {}
+                error_message = error_data.get('message', response.text)
+                logger.error(f"Resend email failed: {response.status_code} - {error_message}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Resend email failed: {str(e)}")
             return False
     
     def _send_smtp(self, to_email: str, subject: str, html_content: str, 

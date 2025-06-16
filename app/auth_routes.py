@@ -64,7 +64,9 @@ def traditional_signup():
             age_confirmed=True,
             agreed_to_terms=True,
             email_verified=False,
-            is_active=True
+            is_active=True,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
         
         # Set password
@@ -155,7 +157,9 @@ def google_signup():
             email_verified=google_user.get('email_verified', True),
             age_confirmed=True,
             agreed_to_terms=True,
-            is_active=True
+            is_active=True,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
         
         # Save user
