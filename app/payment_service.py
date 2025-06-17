@@ -64,8 +64,8 @@ class KorapayService:
                 "name": customer_email.split('@')[0].title(),
                 "email": customer_email
             },
-            "notification_url": f"{os.getenv('APP_URL', 'http://localhost:5000')}/api/webhooks/korapay",
-            "redirect_url": f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/payment/success",
+            "notification_url": f"{os.getenv('APP_URL', 'https://youtubeintel-backend.onrender.com')}/api/webhooks/korapay",
+            "redirect_url": f"{os.getenv('FRONTEND_URL', 'https://youtubeintel.vercel.app')}/payment/success",
             "metadata": {
                 "credits": credits,
                 "amount_usd": amount_usd,
