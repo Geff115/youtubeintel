@@ -27,8 +27,8 @@ class EmailService:
         self.from_name = os.getenv('FROM_NAME', 'YouTubeIntel')
         
         # App configuration
-        self.app_url = os.getenv('APP_URL', 'http://localhost:5000')
-        self.frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+        self.app_url = os.getenv('APP_URL', 'https://youtubeintel-backend.onrender.com')
+        self.frontend_url = os.getenv('FRONTEND_URL', 'http://youtubeintel.vercel.app')
         
         # Resend (recommended for production)
         self.resend_api_key = os.getenv('RESEND_API_KEY')
