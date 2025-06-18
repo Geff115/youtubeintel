@@ -14,10 +14,9 @@ app = Flask(__name__)
 
 # CORS configuration for frontend
 CORS(app, origins=[
-    "http://localhost:3000",  # Local development
+    
+    "http://localhost:3000",  # Local development (frontend)
     "https://youtubeintel-backend.onrender.com",  # Render backend
-    "https://youtubeintel.vercel.app",  # Vercel frontend
-    os.getenv('FRONTEND_URL', 'http://localhost:3000')
 ], supports_credentials=True)
 
 # Logging
