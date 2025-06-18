@@ -12,12 +12,21 @@ load_dotenv()
 # Create Flask app
 app = Flask(__name__)
 
-# CORS configuration for frontend
-CORS(app, origins=[
-    
-    "http://localhost:3000",  # Local development (frontend)
-    "https://youtubeintel-backend.onrender.com",  # Render backend
-], supports_credentials=True)
+# CORS configuration for the application
+CORS(app,
+    origins=[
+        "http://localhost:3000",  # Local development (frontend)
+        "http://localhost:5000",  # Local development (backend)
+        "https://youtubeintel-backend.onrender.com",  # Render backend
+        "https://accounts.google.com",  # Google authentication domain
+        # Add production frontend domain here after the frontend has been deployed
+    ],
+    supports_credentials=True,
+    allow_headers=[
+        'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-CSRFToken'
+    ],
+    methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+)
 
 # Logging
 logging.basicConfig(level=logging.INFO)

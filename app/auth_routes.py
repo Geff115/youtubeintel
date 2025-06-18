@@ -321,6 +321,58 @@ def google_signin():
         logger.error(f"Google signin failed: {str(e)}")
         return jsonify({'error': 'Sign in failed'}), 500
 
+@auth_bp.route('/google/callback', methods=['POST'])
+@rate_limit(credits_cost=0, limit_type='requests')
+@validate_input(
+    code={'required': True, 'type': str}
+)
+def google_oauth_callback():
+    """Exchange Google authorization code for tokens"""
+    try:
+        data = request.validated_data
+        code = data['code']
+
+        # Exchange authorization code for tokens
+        client_id = os.getenv('GOOGLE_CLIENT_ID')
+        client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
+        redirect_uri = os.getenv('GOOGLE_REDIRECT_URI', 'postmessage')  # 'postmessage' is for client-side flows
+
+        # Make request to Google token endpoint
+        token_url = 'https://oauth2.googleapis.com/token'
+        token_data = {
+            'code': code,
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'redirect_uri': redirect_uri,
+            'grant_type': 'authorization_code'
+        }
+
+        token_response = requests.post(token_url, data=token_data)
+        if not token_response.ok:
+            logger.error(f"Google token exchange failed: {token_response.text}")
+            return jsonify({'error': 'Failed to exchange authorization code for tokens'}), 400
+        
+        token_info = token_response.json()
+        id_token = token_info.get('id_token')
+
+        if not id_token:
+            return jsonify({'error': 'No ID token received from Google'}), 400
+        
+        # Verify the ID token
+        google_user = auth_service.verify_google_token(id_token)
+
+        # Return the ID token to the client
+        return jsonify({
+            'success': True,
+            'message': 'Google OAuth successful',
+            'id_token': id_token,
+            'user_info': google_user
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Google OAuth callback failed: {str(e)}")
+        return jsonify({'error': 'Failed to process Google authentication'}), 500
+
 @auth_bp.route('/refresh', methods=['POST'])
 @validate_input(
     refresh_token={'required': True, 'type': str}
