@@ -48,9 +48,6 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 from database import init_db
 db = init_db(app)
 
-# Ensure upload directory exists
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 # Import Redis configuration
 from redis_config import test_redis_connection
 
