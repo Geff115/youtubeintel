@@ -5,6 +5,11 @@ from dotenv import load_dotenv
 import uuid
 from werkzeug.utils import secure_filename
 from PIL import Image
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+import base64
+import io
 import logging
 from datetime import datetime
 from payment_service import KorapayService, CREDIT_PACKAGES, get_package_by_credits
@@ -43,11 +48,6 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 from database import init_db
 db = init_db(app)
 
-# Configuration for file uploads
-UPLOAD_FOLDER = 'uploads/profile_pictures'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
-
 # Ensure upload directory exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -75,34 +75,44 @@ from tasks import (
 from auth_routes import auth_bp
 app.register_blueprint(auth_bp)
 
+# Configure Cloudinary
+cloudinary.config()  # This will use the CLOUDINARY_URL environment variable
+
 # Configuration for file uploads
-UPLOAD_FOLDER = 'uploads/profile_pictures'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
-
-# Ensure upload directory exists
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def process_profile_picture(file):
-    """Process and optimize profile picture"""
+def optimize_image_for_upload(file):
+    """Optimize image before uploading to Cloudinary"""
     try:
         # Open image with PIL
         img = Image.open(file)
         
         # Convert to RGB if necessary (for JPEG output)
         if img.mode in ('RGBA', 'LA', 'P'):
-            img = img.convert('RGB')
+            # Create white background for transparent images
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+            img = background
         
-        # Resize to reasonable dimensions (max 400x400)
-        img.thumbnail((400, 400), Image.Resampling.LANCZOS)
+        # Resize if too large (max 1000x1000 for upload)
+        if img.width > 1000 or img.height > 1000:
+            img.thumbnail((1000, 1000), Image.Resampling.LANCZOS)
         
-        return img
+        # Convert to bytes for upload
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format='JPEG', quality=85, optimize=True)
+        img_bytes.seek(0)
+        
+        return img_bytes
     except Exception as e:
-        logger.error(f"Error processing image: {str(e)}")
+        logger.error(f"Error optimizing image: {str(e)}")
         return None
 
 # Routes
@@ -892,7 +902,7 @@ def update_user_profile():
 @token_required
 @rate_limit(credits_cost=0)
 def upload_profile_picture():
-    """Upload and update user profile picture"""
+    """Upload and update user profile picture using Cloudinary"""
     try:
         user_id = request.current_user['id']
         user = User.query.get(user_id)
@@ -921,74 +931,67 @@ def upload_profile_picture():
         if file_size > MAX_FILE_SIZE:
             return jsonify({'error': 'File too large. Maximum size is 5MB'}), 400
         
-        # Process the image
-        processed_img = process_profile_picture(file)
-        if not processed_img:
+        # Optimize the image
+        optimized_image = optimize_image_for_upload(file)
+        if not optimized_image:
             return jsonify({'error': 'Invalid image file or processing failed'}), 400
         
-        # Generate unique filename
-        file_extension = 'jpg'  # Always save as JPG for consistency
-        filename = f"{user_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        
-        # Save the processed image
-        processed_img.save(filepath, 'JPEG', quality=85, optimize=True)
-        
-        # Delete old profile picture if it exists
+        # Delete old profile picture from Cloudinary if it exists
         if user.profile_picture:
-            old_filename = user.profile_picture.split('/')[-1]
-            old_filepath = os.path.join(UPLOAD_FOLDER, old_filename)
-            if os.path.exists(old_filepath):
-                try:
-                    os.remove(old_filepath)
-                except Exception as e:
-                    logger.warning(f"Failed to delete old profile picture: {str(e)}")
+            try:
+                # Extract public_id from URL
+                old_public_id = extract_cloudinary_public_id(user.profile_picture)
+                if old_public_id:
+                    cloudinary.uploader.destroy(old_public_id)
+                    logger.info(f"Deleted old profile picture: {old_public_id}")
+            except Exception as e:
+                logger.warning(f"Failed to delete old profile picture from Cloudinary: {str(e)}")
         
-        # Update user profile picture URL
-        base_url = os.getenv('APP_URL', 'http://localhost:5000')
-        picture_url = f"{base_url}/uploads/profile_pictures/{filename}"
-        user.profile_picture = picture_url
-        
-        db.session.commit()
-        
-        logger.info(f"Profile picture updated for user: {user.email}")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Profile picture updated successfully',
-            'profile_picture_url': picture_url,
-            'user': user.to_dict()
-        })
+        # Upload to Cloudinary
+        try:
+            upload_result = cloudinary.uploader.upload(
+                optimized_image,
+                public_id=f"profile_pictures/{user_id}_{uuid.uuid4().hex[:8]}",
+                folder="youtubeintel/profile_pictures",
+                transformation=[
+                    {'width': 400, 'height': 400, 'crop': 'fill', 'gravity': 'face'},
+                    {'quality': 'auto:good'},
+                    {'format': 'auto'}
+                ],
+                overwrite=True,
+                resource_type="image"
+            )
+            
+            # Get the optimized URL
+            profile_picture_url = upload_result['secure_url']
+            
+            # Update user profile picture URL in database
+            user.profile_picture = profile_picture_url
+            db.session.commit()
+            
+            logger.info(f"Profile picture updated for user: {user.email}")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Profile picture updated successfully',
+                'profile_picture_url': profile_picture_url,
+                'user': user.to_dict()
+            })
+            
+        except Exception as e:
+            logger.error(f"Cloudinary upload failed: {str(e)}")
+            return jsonify({'error': 'Failed to upload image to cloud storage'}), 500
         
     except Exception as e:
         db.session.rollback()
         logger.error(f"Profile picture upload error: {str(e)}")
         return jsonify({'error': 'Failed to upload profile picture'}), 500
 
-@app.route('/uploads/profile_pictures/<filename>')
-def serve_profile_picture(filename):
-    """Serve profile picture files"""
-    try:
-        # Security: only allow certain file extensions
-        if not allowed_file(filename):
-            return jsonify({'error': 'Invalid file type'}), 400
-        
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        
-        if not os.path.exists(filepath):
-            return jsonify({'error': 'File not found'}), 404
-        
-        return send_from_directory(UPLOAD_FOLDER, filename)
-        
-    except Exception as e:
-        logger.error(f"Error serving profile picture: {str(e)}")
-        return jsonify({'error': 'Failed to serve file'}), 500
-
 @app.route('/api/user/profile-picture', methods=['DELETE'])
 @token_required
 @rate_limit(credits_cost=0)
 def delete_profile_picture():
-    """Delete user profile picture"""
+    """Delete user profile picture from Cloudinary"""
     try:
         user_id = request.current_user['id']
         user = User.query.get(user_id)
@@ -996,17 +999,18 @@ def delete_profile_picture():
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        # Delete file if it exists
+        # Delete from Cloudinary if it exists
         if user.profile_picture:
-            filename = user.profile_picture.split('/')[-1]
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            if os.path.exists(filepath):
-                try:
-                    os.remove(filepath)
-                except Exception as e:
-                    logger.warning(f"Failed to delete profile picture file: {str(e)}")
+            try:
+                # Extract public_id from URL
+                public_id = extract_cloudinary_public_id(user.profile_picture)
+                if public_id:
+                    result = cloudinary.uploader.destroy(public_id)
+                    logger.info(f"Deleted profile picture from Cloudinary: {public_id}, result: {result}")
+            except Exception as e:
+                logger.warning(f"Failed to delete profile picture from Cloudinary: {str(e)}")
         
-        # Clear profile picture URL
+        # Clear profile picture URL in database
         user.profile_picture = None
         db.session.commit()
         
@@ -1022,6 +1026,72 @@ def delete_profile_picture():
         db.session.rollback()
         logger.error(f"Profile picture deletion error: {str(e)}")
         return jsonify({'error': 'Failed to delete profile picture'}), 500
+
+def extract_cloudinary_public_id(cloudinary_url):
+    """Extract public_id from Cloudinary URL for deletion"""
+    try:
+        # Cloudinary URLs look like: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/folder/public_id.jpg
+        # We need to extract the public_id part (including folder)
+        if 'cloudinary.com' not in cloudinary_url:
+            return None
+        
+        # Split by '/upload/' and get the part after it
+        parts = cloudinary_url.split('/upload/')
+        if len(parts) < 2:
+            return None
+        
+        # Get everything after /upload/ and remove version and file extension
+        path_part = parts[1]
+        
+        # Remove version number (v1234567890)
+        if path_part.startswith('v'):
+            path_parts = path_part.split('/', 1)
+            if len(path_parts) > 1:
+                path_part = path_parts[1]
+        
+        # Remove file extension
+        public_id = path_part.rsplit('.', 1)[0]
+        
+        return public_id
+        
+    except Exception as e:
+        logger.error(f"Error extracting Cloudinary public_id: {str(e)}")
+        return None
+
+# Optional: Get Cloudinary upload signature for direct uploads from frontend
+@app.route('/api/user/cloudinary-signature', methods=['POST'])
+@token_required
+@rate_limit(credits_cost=0)
+def get_cloudinary_signature():
+    """Generate Cloudinary upload signature for frontend direct upload"""
+    try:
+        user_id = request.current_user['id']
+        
+        # Parameters for the upload
+        timestamp = int(time.time())
+        params = {
+            'timestamp': timestamp,
+            'folder': 'youtubeintel/profile_pictures',
+            'public_id': f'profile_pictures/{user_id}_{uuid.uuid4().hex[:8]}',
+            'transformation': 'w_400,h_400,c_fill,g_face,q_auto:good,f_auto',
+            'overwrite': True
+        }
+        
+        # Generate signature
+        signature = cloudinary.utils.api_sign_request(params, cloudinary.config().api_secret)
+        
+        return jsonify({
+            'signature': signature,
+            'timestamp': timestamp,
+            'api_key': cloudinary.config().api_key,
+            'cloud_name': cloudinary.config().cloud_name,
+            **params
+        })
+        
+    except Exception as e:
+        logger.error(f"Cloudinary signature error: {str(e)}")
+        return jsonify({'error': 'Failed to generate upload signature'}), 500
+
 
 @app.route('/api/user/delete-account', methods=['DELETE'])
 @token_required
