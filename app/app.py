@@ -1174,10 +1174,13 @@ def purchase_credits():
         if not package_id or not customer_email:
             return jsonify({'error': 'Package ID and email are required'}), 400
         
-        if package_id not in CREDIT_PACKAGES:
-            return jsonify({'error': 'Invalid package ID'}), 400
+        # Import KORAPAY_PACKAGES instead of CREDIT_PACKAGES
+        from payment_service import KORAPAY_PACKAGES
         
-        package = CREDIT_PACKAGES[package_id]
+        if package_id not in KORAPAY_PACKAGES:
+            return jsonify({'error': f'Invalid package ID. Available: {list(KORAPAY_PACKAGES.keys())}'}), 400
+        
+        package = KORAPAY_PACKAGES[package_id]  # Use KORAPAY_PACKAGES instead
         
         # Initialize Korapay service
         korapay = KorapayService()
@@ -1230,11 +1233,15 @@ def purchase_credits():
                 'instructions': 'You will be redirected to Korapay to complete your payment'
             })
         else:
-            return jsonify(checkout), 400
+            logger.error(f"Korapay checkout failed: {checkout.get('error', 'Unknown error')}")
+            return jsonify({
+                'error': checkout.get('error', 'Payment initialization failed'),
+                'details': 'Please try again or contact support if the problem persists'
+            }), 400
             
     except Exception as e:
-        logger.error(f"Payment initiation failed: {str(e)}")
-        return jsonify({'error': f'Payment initiation failed: {str(e)}'}), 500
+        logger.error(f"Purchase credits error: {str(e)}")
+        return jsonify({'error': f'Purchase failed: {str(e)}'}), 500
 
 @app.route('/api/webhooks/korapay', methods=['POST'])
 def korapay_webhook():
