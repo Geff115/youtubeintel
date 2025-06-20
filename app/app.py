@@ -3,6 +3,8 @@ from flask_cors import CORS
 import os
 from dotenv import load_dotenv
 import uuid
+from werkzeug.utils import secure_filename
+from PIL import Image
 import logging
 from datetime import datetime
 from payment_service import KorapayService, CREDIT_PACKAGES, get_package_by_credits
@@ -41,6 +43,14 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 from database import init_db
 db = init_db(app)
 
+# Configuration for file uploads
+UPLOAD_FOLDER = 'uploads/profile_pictures'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+# Ensure upload directory exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 # Import Redis configuration
 from redis_config import test_redis_connection
 
@@ -64,6 +74,36 @@ from tasks import (
 # Register authentication blueprint
 from auth_routes import auth_bp
 app.register_blueprint(auth_bp)
+
+# Configuration for file uploads
+UPLOAD_FOLDER = 'uploads/profile_pictures'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+# Ensure upload directory exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def process_profile_picture(file):
+    """Process and optimize profile picture"""
+    try:
+        # Open image with PIL
+        img = Image.open(file)
+        
+        # Convert to RGB if necessary (for JPEG output)
+        if img.mode in ('RGBA', 'LA', 'P'):
+            img = img.convert('RGB')
+        
+        # Resize to reasonable dimensions (max 400x400)
+        img.thumbnail((400, 400), Image.Resampling.LANCZOS)
+        
+        return img
+    except Exception as e:
+        logger.error(f"Error processing image: {str(e)}")
+        return None
 
 # Routes
 @app.route('/health', methods=['GET'])
@@ -847,6 +887,141 @@ def update_user_profile():
         db.session.rollback()
         logger.error(f"Profile update error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/user/profile-picture', methods=['POST'])
+@token_required
+@rate_limit(credits_cost=0)
+def upload_profile_picture():
+    """Upload and update user profile picture"""
+    try:
+        user_id = request.current_user['id']
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Check if file is present
+        if 'profile_picture' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['profile_picture']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Validate file type
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type. Allowed: PNG, JPG, JPEG, GIF, WEBP'}), 400
+        
+        # Check file size
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        if file_size > MAX_FILE_SIZE:
+            return jsonify({'error': 'File too large. Maximum size is 5MB'}), 400
+        
+        # Process the image
+        processed_img = process_profile_picture(file)
+        if not processed_img:
+            return jsonify({'error': 'Invalid image file or processing failed'}), 400
+        
+        # Generate unique filename
+        file_extension = 'jpg'  # Always save as JPG for consistency
+        filename = f"{user_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        
+        # Save the processed image
+        processed_img.save(filepath, 'JPEG', quality=85, optimize=True)
+        
+        # Delete old profile picture if it exists
+        if user.profile_picture:
+            old_filename = user.profile_picture.split('/')[-1]
+            old_filepath = os.path.join(UPLOAD_FOLDER, old_filename)
+            if os.path.exists(old_filepath):
+                try:
+                    os.remove(old_filepath)
+                except Exception as e:
+                    logger.warning(f"Failed to delete old profile picture: {str(e)}")
+        
+        # Update user profile picture URL
+        base_url = os.getenv('APP_URL', 'http://localhost:5000')
+        picture_url = f"{base_url}/uploads/profile_pictures/{filename}"
+        user.profile_picture = picture_url
+        
+        db.session.commit()
+        
+        logger.info(f"Profile picture updated for user: {user.email}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Profile picture updated successfully',
+            'profile_picture_url': picture_url,
+            'user': user.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Profile picture upload error: {str(e)}")
+        return jsonify({'error': 'Failed to upload profile picture'}), 500
+
+@app.route('/uploads/profile_pictures/<filename>')
+def serve_profile_picture(filename):
+    """Serve profile picture files"""
+    try:
+        # Security: only allow certain file extensions
+        if not allowed_file(filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+        
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'File not found'}), 404
+        
+        return send_from_directory(UPLOAD_FOLDER, filename)
+        
+    except Exception as e:
+        logger.error(f"Error serving profile picture: {str(e)}")
+        return jsonify({'error': 'Failed to serve file'}), 500
+
+@app.route('/api/user/profile-picture', methods=['DELETE'])
+@token_required
+@rate_limit(credits_cost=0)
+def delete_profile_picture():
+    """Delete user profile picture"""
+    try:
+        user_id = request.current_user['id']
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Delete file if it exists
+        if user.profile_picture:
+            filename = user.profile_picture.split('/')[-1]
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            if os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception as e:
+                    logger.warning(f"Failed to delete profile picture file: {str(e)}")
+        
+        # Clear profile picture URL
+        user.profile_picture = None
+        db.session.commit()
+        
+        logger.info(f"Profile picture deleted for user: {user.email}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Profile picture deleted successfully',
+            'user': user.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Profile picture deletion error: {str(e)}")
+        return jsonify({'error': 'Failed to delete profile picture'}), 500
 
 @app.route('/api/user/delete-account', methods=['DELETE'])
 @token_required
