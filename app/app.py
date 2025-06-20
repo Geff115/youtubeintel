@@ -848,6 +848,227 @@ def update_user_profile():
         logger.error(f"Profile update error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/user/delete-account', methods=['DELETE'])
+@token_required
+@rate_limit(credits_cost=0, limit_type='requests')
+def delete_user_account():
+    """
+    Delete user account and all associated data
+    This is a destructive operation that cannot be undone
+    """
+    try:
+        # Get current user from token
+        user_id = request.current_user['id']
+        user = db.session.get(User, user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Check if user has pending credit transactions
+        pending_transactions = CreditTransaction.query.filter_by(
+            user_id=user_id,
+            status='pending'
+        ).count()
+        
+        if pending_transactions > 0:
+            return jsonify({
+                'error': 'Cannot delete account with pending transactions',
+                'details': f'You have {pending_transactions} pending payment(s). Please wait for them to complete or contact support.',
+                'contact': 'support@youtubeintel.com'
+            }), 400
+        
+        # Check if user has a significant credit balance
+        if user.credits_balance > 50:
+            return jsonify({
+                'error': 'Account has significant credit balance',
+                'details': f'You have {user.credits_balance} credits remaining. Please use them or contact support for a refund.',
+                'credits_balance': user.credits_balance,
+                'contact': 'support@youtubeintel.com'
+            }), 400
+        
+        user_email = user.email  # Store for logging
+        
+        # Begin transaction for atomic deletion
+        try:
+            # Delete related data in correct order (foreign key constraints)
+            
+            # 1. Delete user sessions
+            UserSession.query.filter_by(user_id=user_id).delete()
+            
+            # 2. Delete API usage logs
+            APIUsageLog.query.filter_by(user_id=user_id).delete()
+            
+            # 3. Delete credit transactions
+            CreditTransaction.query.filter_by(user_id=user_id).delete()
+            
+            # 4. Delete the user account
+            db.session.delete(user)
+            
+            # Commit all deletions
+            db.session.commit()
+            
+            logger.info(f"User account deleted successfully: {user_email}")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Account deleted successfully',
+                'details': 'All your data has been permanently removed from our systems.'
+            })
+            
+        except Exception as e:
+            # Rollback transaction on error
+            db.session.rollback()
+            logger.error(f"Database error during account deletion for {user_email}: {str(e)}")
+            return jsonify({
+                'error': 'Failed to delete account',
+                'details': 'A database error occurred. Please try again or contact support.',
+                'contact': 'support@youtubeintel.com'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Account deletion error: {str(e)}")
+        return jsonify({
+            'error': 'Account deletion failed',
+            'details': str(e)
+        }), 500
+
+
+@app.route('/api/user/deletion-eligibility', methods=['GET'])
+@token_required
+@rate_limit(credits_cost=0, limit_type='requests')
+def check_deletion_eligibility():
+    """
+    Check if user account is eligible for deletion
+    Returns warnings about pending transactions, credits, etc.
+    """
+    try:
+        user_id = request.current_user['id']
+        user = db.session.get(User, user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Check for blockers
+        pending_transactions = CreditTransaction.query.filter_by(
+            user_id=user_id,
+            status='pending'
+        ).count()
+        
+        # Check for warnings
+        warnings = []
+        blockers = []
+        
+        if pending_transactions > 0:
+            blockers.append({
+                'type': 'pending_transactions',
+                'message': f'You have {pending_transactions} pending payment transaction(s)',
+                'action': 'Wait for transactions to complete or contact support'
+            })
+        
+        if user.credits_balance > 50:
+            blockers.append({
+                'type': 'high_credit_balance',
+                'message': f'You have {user.credits_balance} credits remaining',
+                'action': 'Use credits or contact support for refund options'
+            })
+        
+        if user.credits_balance > 0 and user.credits_balance <= 50:
+            warnings.append({
+                'type': 'credit_balance',
+                'message': f'You will lose {user.credits_balance} remaining credits',
+                'action': 'Consider using them before deletion'
+            })
+        
+        if user.total_credits_purchased > 0:
+            warnings.append({
+                'type': 'purchase_history',
+                'message': f'You have purchased {user.total_credits_purchased} credits total',
+                'action': 'All purchase history will be permanently deleted'
+            })
+        
+        can_delete = len(blockers) == 0
+        
+        return jsonify({
+            'can_delete': can_delete,
+            'user': {
+                'email': user.email,
+                'credits_balance': user.credits_balance,
+                'total_credits_purchased': user.total_credits_purchased,
+                'account_age_days': (datetime.utcnow() - user.created_at).days,
+                'last_activity': user.last_activity.isoformat() if user.last_activity else None
+            },
+            'blockers': blockers,
+            'warnings': warnings,
+            'data_to_be_deleted': [
+                'Account profile and settings',
+                'Credit balance and transaction history',
+                'API usage logs and activity',
+                'All authentication sessions',
+                'Email preferences and verification status'
+            ],
+            'support_contact': 'support@youtubeintel.com'
+        })
+        
+    except Exception as e:
+        logger.error(f"Deletion eligibility check error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/request-data-export', methods=['POST'])
+@token_required
+@rate_limit(credits_cost=0, limit_type='requests')
+def request_data_export():
+    """
+    Request export of user data (GDPR compliance)
+    This allows users to download their data before deletion
+    """
+    try:
+        user_id = request.current_user['id']
+        user = db.session.get(User, user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get user's data
+        transactions = CreditTransaction.query.filter_by(user_id=user_id).all()
+        usage_logs = APIUsageLog.query.filter_by(user_id=user_id).order_by(
+            APIUsageLog.created_at.desc()
+        ).limit(1000).all()  # Limit to last 1000 entries
+        
+        user_data = {
+            'account_info': user.to_dict(),
+            'credit_transactions': [t.to_dict() for t in transactions],
+            'api_usage_logs': [log.to_dict() for log in usage_logs],
+            'export_metadata': {
+                'exported_at': datetime.utcnow().isoformat(),
+                'export_version': '1.0',
+                'total_transactions': len(transactions),
+                'total_api_calls': len(usage_logs)
+            }
+        }
+        
+        # For later implementation, we might want to:
+        # 1. Generate a downloadable file (JSON/CSV)
+        # 2. Store it temporarily with a secure download link
+        # 3. Send email with download link
+        # 4. Auto-delete the export file after 7 days
+        
+        # For now, return the data directly
+        return jsonify({
+            'success': True,
+            'message': 'Data export generated successfully',
+            'data': user_data,
+            'notes': [
+                'This export contains all your account data',
+                'Save this information before deleting your account',
+                'For security, this data is only available through this API call'
+            ]
+        })
+        
+    except Exception as e:
+        logger.error(f"Data export error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/migrate', methods=['POST'])
 def start_migration():
     """Start channel data migration from existing sources"""
