@@ -1199,9 +1199,13 @@ def purchase_credits():
             # Get or create user
             user = User.query.filter_by(email=customer_email).first()
             if not user:
+                display_name = customer_email.split('@')[0].title()
                 user = User(
                     email=customer_email, 
-                    name=customer_email.split('@')[0].title()
+                    display_name=display_name,
+                    auth_method='email',
+                    email_verified=False,
+                    is_active=True
                 )
                 db.session.add(user)
                 db.session.flush()
