@@ -16,6 +16,7 @@ socketio = SocketIO(
     engineio_logger=True,
     ping_interval=25,
     ping_timeout=60
+    transports=['polling', 'websocket']
 )
 
 # Store active connections
