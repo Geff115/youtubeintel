@@ -137,7 +137,7 @@ def health_check():
             'websocket_enabled': True,
             'active_connections': get_active_connections_count(),
             'timestamp': datetime.utcnow().isoformat(),
-            'version': '2.0.0',
+            'version': '3.0.0',
             'features': {
                 'authentication': True,
                 'rate_limiting': True,
