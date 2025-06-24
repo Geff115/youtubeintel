@@ -32,7 +32,12 @@ CORS(app,
     ],
     supports_credentials=True,
     allow_headers=[
-        'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-CSRFToken'
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'Accept', 'Origin',
+        'X-CSRFToken',
+        'Access-Control-Allow-Credentials'
     ],
     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 )
@@ -45,7 +50,9 @@ socketio.init_app(
         "http://localhost:5000",
         "https://*.vercel.app",
         "https://youtubeintel-backend.onrender.com",
-    ]
+    ],
+    logger=True,
+    engineio_logger=True
 )
 
 # Logging
@@ -152,6 +159,45 @@ def health_check():
             'error': str(e),
             'timestamp': datetime.utcnow().isoformat()
         }), 500
+
+# Endpoint to test if auth is working
+@app.route('/api/auth/debug', methods=['GET'])
+def auth_debug():
+    """Debug authentication status"""
+    try:
+        # Get the authorization header
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header:
+            return jsonify({
+                'authenticated': False,
+                'error': 'No Authorization header',
+                'headers': dict(request.headers)
+            })
+        
+        # Try to verify the token
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:]
+        else:
+            token = auth_header
+            
+        payload = auth_service.verify_jwt_token(token)
+        user = User.query.get(payload['user_id'])
+        
+        return jsonify({
+            'authenticated': True,
+            'user_id': user.id if user else None,
+            'user_email': user.email if user else None,
+            'token_valid': True,
+            'token_payload': payload
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'authenticated': False,
+            'error': str(e),
+            'token_valid': False
+        }), 401
 
 @app.route('/api/stats', methods=['GET'])
 @token_required
