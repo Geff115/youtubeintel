@@ -146,6 +146,12 @@ def health_check():
                 'email_service': bool(os.getenv('SMTP_USERNAME') or os.getenv('MAILGUN_API_KEY'))
             }
         })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
 
 @app.route('/api/stats', methods=['GET'])
 @token_required
