@@ -41,31 +41,12 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 
 # CORS configuration - MUST come immediately after app creation
 CORS(app,
-    origins="*",
-    allow_headers=[
-        'Content-Type', 
-        'Authorization', 
-        'X-Requested-With', 
-        'Accept', 
-        'Origin', 
-        'Access-Control-Request-Method',
-        'Access-Control-Request-Headers'
-    ],
+    resources={r"/*": {"origins": "*"}},
+    allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    expose_headers=['Content-Range', 'X-Content-Range'],
-    send_wildcard=True,
-    vary_header=False
+    supports_credentials=True,
+    expose_headers=['Content-Range', 'X-Content-Range']
 )
-
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        response = make_response()
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add('Access-Control-Allow-Headers', "*")
-        response.headers.add('Access-Control-Allow-Methods', "*")
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-        return response
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://youtube:youtube123@localhost:5432/youtube_channels')
@@ -121,8 +102,7 @@ def optimize_image_for_upload(file):
         return None
 
 # Routes
-@app.route('/health', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     try:
@@ -151,8 +131,7 @@ def health_check():
         }), 500
 
 # Endpoint to test if auth is working
-@app.route('/api/auth/debug', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/auth/debug', methods=['GET'])
 def auth_debug():
     """Debug authentication status"""
     try:
@@ -191,8 +170,7 @@ def auth_debug():
             'cors_working': True
         }), 401
 
-@app.route('/api/stats', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/stats', methods=['GET'])
 @token_required
 @rate_limit(credits_cost=0)
 def get_stats():
@@ -235,8 +213,7 @@ def get_stats():
         logger.error(f"Stats error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/channels', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/channels', methods=['GET'])
 @token_required
 @rate_limit(credits_cost=1)
 def list_channels():
@@ -261,8 +238,7 @@ def list_channels():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/admin/api-keys', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/admin/api-keys', methods=['GET'])
 @admin_required
 def list_api_keys():
     """List API keys (admin only)"""
@@ -281,8 +257,7 @@ def list_api_keys():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/jobs', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/jobs', methods=['GET'])
 @token_required
 @rate_limit(credits_cost=0)
 def list_jobs():
@@ -320,8 +295,7 @@ def list_jobs():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/jobs/<job_id>', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/jobs/<job_id>', methods=['GET'])
 @token_required
 @rate_limit(credits_cost=0)
 def get_job_status(job_id):
@@ -348,8 +322,7 @@ def get_job_status(job_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/discover-channels', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/discover-channels', methods=['POST'])
 @token_required
 @rate_limit(credits_cost=5)  # 5 credits for channel discovery
 def discover_channels():
@@ -392,8 +365,7 @@ def discover_channels():
         logger.error(f"Channel discovery error: {str(e)}")
         return jsonify({'error': f'Failed to start channel discovery: {str(e)}'}), 500
 
-@app.route('/api/fetch-metadata', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/fetch-metadata', methods=['POST'])
 @token_required
 @rate_limit(credits_cost=10)  # 10 credits for metadata fetch
 def fetch_metadata():
@@ -429,8 +401,7 @@ def fetch_metadata():
     except Exception as e:
         return jsonify({'error': f'Failed to start metadata fetch: {str(e)}'}), 500
 
-@app.route('/api/fetch-videos', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/fetch-videos', methods=['POST'])
 @token_required
 @rate_limit(credits_cost=15)  # 15 credits for video fetch
 def fetch_videos():
@@ -792,8 +763,7 @@ def test_redis():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app.route('/api/batch-metadata', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/batch-metadata', methods=['POST'])
 @token_required
 @rate_limit(credits_cost=25)  # 25 credits for batch processing
 def start_batch_metadata():
@@ -830,8 +800,7 @@ def start_batch_metadata():
     except Exception as e:
         return jsonify({'error': f'Failed to start batch processing: {str(e)}'}), 500
 
-@app.route('/api/batch-videos', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/batch-videos', methods=['POST'])
 @token_required
 @rate_limit(credits_cost=35)  # 35 credits for batch video processing
 def start_batch_videos():
@@ -867,8 +836,7 @@ def start_batch_videos():
     except Exception as e:
         return jsonify({'error': f'Failed to start batch processing: {str(e)}'}), 500
 
-@app.route('/api/batch-discovery', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/batch-discovery', methods=['POST'])
 @token_required
 @rate_limit(credits_cost=50)  # 50 credits for batch discovery
 def start_batch_discovery():
@@ -904,8 +872,7 @@ def start_batch_discovery():
     except Exception as e:
         return jsonify({'error': f'Failed to start batch processing: {str(e)}'}), 500
 
-@app.route('/api/user/profile', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/user/profile', methods=['GET'])
 @token_required
 def get_user_profile():
     """Get user profile information"""
@@ -934,8 +901,7 @@ def get_user_profile():
         logger.error(f"Get profile error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/user/profile', methods=['PUT', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/user/profile', methods=['PUT'])
 @token_required
 @rate_limit(credits_cost=0)
 def update_user_profile():
@@ -970,8 +936,7 @@ def update_user_profile():
         logger.error(f"Profile update error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/user/profile-picture', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/user/profile-picture', methods=['POST'])
 @token_required
 @rate_limit(credits_cost=0)
 def upload_profile_picture():
@@ -1060,8 +1025,7 @@ def upload_profile_picture():
         logger.error(f"Profile picture upload error: {str(e)}")
         return jsonify({'error': 'Failed to upload profile picture'}), 500
 
-@app.route('/api/user/profile-picture', methods=['DELETE', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/user/profile-picture', methods=['DELETE'])
 @token_required
 @rate_limit(credits_cost=0)
 def delete_profile_picture():
@@ -1133,8 +1097,7 @@ def extract_cloudinary_public_id(cloudinary_url):
         return None
 
 # Optional: Get Cloudinary upload signature for direct uploads from frontend
-@app.route('/api/user/cloudinary-signature', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/user/cloudinary-signature', methods=['POST'])
 @token_required
 @rate_limit(credits_cost=0)
 def get_cloudinary_signature():
@@ -1168,8 +1131,7 @@ def get_cloudinary_signature():
         return jsonify({'error': 'Failed to generate upload signature'}), 500
 
 
-@app.route('/api/user/delete-account', methods=['DELETE', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/user/delete-account', methods=['DELETE'])
 @token_required
 @rate_limit(credits_cost=0, limit_type='requests')
 def delete_user_account():
@@ -1254,8 +1216,7 @@ def delete_user_account():
         }), 500
 
 
-@app.route('/api/user/deletion-eligibility', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/user/deletion-eligibility', methods=['GET'])
 @token_required
 @rate_limit(credits_cost=0, limit_type='requests')
 def check_deletion_eligibility():
@@ -1336,8 +1297,7 @@ def check_deletion_eligibility():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/user/request-data-export', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/user/request-data-export', methods=['POST'])
 @token_required
 @rate_limit(credits_cost=0, limit_type='requests')
 def request_data_export():
@@ -1392,8 +1352,7 @@ def request_data_export():
         logger.error(f"Data export error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/migrate', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/migrate', methods=['POST'])
 def start_migration():
     """Start channel data migration from existing sources"""
     try:
@@ -1431,8 +1390,7 @@ def start_migration():
     except Exception as e:
         return jsonify({'error': f'Failed to start migration: {str(e)}'}), 500
 
-@app.route('/api/legacy-fetch-metadata', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/legacy-fetch-metadata', methods=['POST'])
 def start_legacy_metadata_fetch():
     """Start legacy metadata fetch (original implementation)"""
     try:
@@ -1466,8 +1424,7 @@ def start_legacy_metadata_fetch():
     except Exception as e:
         return jsonify({'error': f'Failed to start metadata fetch: {str(e)}'}), 500
 
-@app.route('/api/system-status', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/system-status', methods=['GET'])
 @admin_required
 def get_system_status():
     """Get comprehensive system status (admin only)"""
@@ -1534,8 +1491,7 @@ def get_system_status():
     except Exception as e:
         return jsonify({'error': f'Failed to get system status: {str(e)}'}), 500
 
-@app.route('/api/bulk-add-channels', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/bulk-add-channels', methods=['POST'])
 def bulk_add_channels():
     """Add channels in bulk from JSON data"""
     try:
@@ -1598,8 +1554,7 @@ def bulk_add_channels():
         db.session.rollback()
         return jsonify({'error': f'Bulk add failed: {str(e)}'}), 500
 
-@app.route('/api/worker-status', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/worker-status', methods=['GET'])
 @admin_required
 def get_worker_status():
     """Get Celery worker status (admin only)"""
@@ -1638,8 +1593,7 @@ def get_worker_status():
             'total_workers': 0
         })
 
-@app.route('/api/credit-packages', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/credit-packages', methods=['GET'])
 def get_credit_packages():
     """Get available credit packages (Korapay-friendly)"""
     from payment_service import KORAPAY_PACKAGES
@@ -1666,8 +1620,7 @@ def get_credit_packages():
         }
     })
 
-@app.route('/api/user/<email>/credits', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/user/<email>/credits', methods=['GET'])
 def get_user_credits(email):
     """Get user's credit balance and transaction history"""
     try:
@@ -1714,8 +1667,7 @@ def get_user_credits(email):
         logger.error(f"Error getting user credits: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/purchase-credits', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/purchase-credits', methods=['POST'])
 def purchase_credits():
     """Initiate credit purchase via Korapay with WebSocket notifications"""
     try:
@@ -1807,8 +1759,7 @@ def purchase_credits():
         logger.error(f"Purchase credits error: {str(e)}")
         return jsonify({'error': f'Purchase failed: {str(e)}'}), 500
 
-@app.route('/api/webhooks/korapay', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/webhooks/korapay', methods=['POST'])
 def korapay_webhook():
     """Handle Korapay payment webhooks"""
     try:
@@ -1887,8 +1838,7 @@ def korapay_webhook():
         logger.error(f"Webhook processing error: {str(e)}")
         return jsonify({'error': 'Webhook processing failed'}), 500
 
-@app.route('/api/verify-payment/<reference>', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/verify-payment/<reference>', methods=['GET'])
 def verify_payment(reference):
     """Manually verify a payment status"""
     try:
@@ -1925,8 +1875,7 @@ def verify_payment(reference):
         logger.error(f"Payment verification error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/deduct-credits', methods=['POST', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/deduct-credits', methods=['POST'])
 def deduct_credits():
     """Deduct credits for API usage (internal endpoint)"""
     try:
@@ -1980,8 +1929,7 @@ def deduct_credits():
         return jsonify({'error': str(e)}), 500
 
 # Websocket endpoint info
-@app.route('/api/websocket/info', methods=['GET', 'OPTIONS'])
-@cross_origin(origins="*")
+@app.route('/api/websocket/info', methods=['GET'])
 @token_required
 def websocket_info():
     """Get WebSocket connection information"""
