@@ -280,9 +280,29 @@ def google_signin():
         if not user.is_active:
             return jsonify({'error': 'Account is deactivated. Please contact support.'}), 403
         
-        # Update user info from Google (in case it changed)
-        user.display_name = google_user.get('name', user.display_name)
-        user.profile_picture = google_user.get('picture', user.profile_picture)
+        # Update user info from Google ONLY if they don't have custom data
+        # Don't overwrite display_name if user has set a custom one
+        if not user.display_name or user.display_name == google_user.get('name', ''):
+            user.display_name = google_user.get('name', user.display_name)
+        
+        # CRITICAL FIX: Only update profile picture from Google if:
+        # 1. User doesn't have a profile picture, OR
+        # 2. User's current profile picture is still a Google URL (not uploaded to Cloudinary)
+        current_profile_picture = user.profile_picture
+        google_profile_picture = google_user.get('picture', '')
+        
+        should_update_profile_picture = (
+            not current_profile_picture or  # No profile picture
+            (current_profile_picture and 'googleusercontent.com' in current_profile_picture)  # Still using Google picture
+        )
+        
+        if should_update_profile_picture and google_profile_picture:
+            user.profile_picture = google_profile_picture
+            logger.info(f"Updated Google profile picture for {user.email}")
+        else:
+            logger.info(f"Preserved custom profile picture for {user.email}: {current_profile_picture}")
+        
+        # Always update email verification status from Google
         user.email_verified = google_user.get('email_verified', user.email_verified)
         
         # Generate tokens
