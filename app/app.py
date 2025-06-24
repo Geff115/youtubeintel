@@ -13,6 +13,7 @@ import io
 import logging
 from datetime import datetime
 from payment_service import KorapayService, CREDIT_PACKAGES, get_package_by_credits
+from websocket_service import socketio, notify_job_progress, notify_job_completed, notify_credits_updated, notify_discovery_results
 
 load_dotenv()
 
@@ -24,7 +25,8 @@ CORS(app,
     origins=[
         "http://localhost:3000",  # Local development (frontend)
         "http://localhost:5000",  # Local development (backend)
-        "https://youtubeintel-backend.onrender.com",  # Render backend
+        "https://*.vercel.app",  # Production (Vercel frontend)
+        "https://youtubeintel-backend.onrender.com",  # Production (Render backend)
         "https://accounts.google.com",  # Google authentication domain
         # Add production frontend domain here after the frontend has been deployed
     ],
@@ -33,6 +35,17 @@ CORS(app,
         'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-CSRFToken'
     ],
     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+)
+
+# Initialize SocketIO
+socketio.init_app(
+    app,
+    cors_allowed_origins=[
+        "http://localhost:3000",
+        "http://localhost:5000",
+        "https://*.vercel.app",
+        "https://youtubeintel-backend.onrender.com",
+    ]
 )
 
 # Logging
@@ -1628,7 +1641,7 @@ def get_user_credits(email):
 
 @app.route('/api/purchase-credits', methods=['POST'])
 def purchase_credits():
-    """Initiate credit purchase via Korapay"""
+    """Initiate credit purchase via Korapay with WebSocket notifications"""
     try:
         data = request.get_json()
         package_id = data.get('package_id')
@@ -1643,7 +1656,7 @@ def purchase_credits():
         if package_id not in KORAPAY_PACKAGES:
             return jsonify({'error': f'Invalid package ID. Available: {list(KORAPAY_PACKAGES.keys())}'}), 400
         
-        package = KORAPAY_PACKAGES[package_id]  # Use KORAPAY_PACKAGES instead
+        package = KORAPAY_PACKAGES[package_id]
         
         # Initialize Korapay service
         korapay = KorapayService()
@@ -1662,10 +1675,9 @@ def purchase_credits():
             # Get or create user
             user = User.query.filter_by(email=customer_email).first()
             if not user:
-                display_name = customer_email.split('@')[0].title()
                 user = User(
                     email=customer_email, 
-                    display_name=display_name,
+                    display_name=customer_email.split('@')[0].title(),
                     auth_method='email',
                     email_verified=False,
                     is_active=True
@@ -1687,6 +1699,15 @@ def purchase_credits():
             db.session.commit()
             
             logger.info(f"Created pending transaction {checkout['reference']} for {customer_email}")
+            
+            # Notify user about pending purchase via WebSocket
+            notify_credits_updated(
+                user_id=user.id,
+                transaction_type='purchase_pending',
+                amount=package['credits'],
+                new_balance=user.credits_balance,
+                message=f"Credit purchase initiated: {package['credits']} credits"
+            )
             
             return jsonify({
                 'success': True,
@@ -1879,6 +1900,32 @@ def deduct_credits():
         logger.error(f"Credit deduction error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+# Websocket endpoint info
+@app.route('/api/websocket/info', methods=['GET'])
+@token_required
+def websocket_info():
+    """Get WebSocket connection information"""
+    try:
+        from websocket_service import get_active_connections_count, get_user_connection_status
+        
+        user_id = request.current_user['id']
+        
+        return jsonify({
+            'websocket_url': os.getenv('WEBSOCKET_URL', 'ws://localhost:5000'),
+            'user_connected': get_user_connection_status(user_id),
+            'total_connections': get_active_connections_count(),
+            'events': [
+                'job_update',
+                'job_completed', 
+                'credits_updated',
+                'discovery_results',
+                'connection_status'
+            ]
+        })
+    except Exception as e:
+        logger.error(f"WebSocket info error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 # Error handlers
 @app.errorhandler(401)
 def unauthorized(error):
@@ -1898,28 +1945,11 @@ def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    with app.app_context():
-        # Create tables if they don't exist
-        db.create_all()
-        
-        # Create default admin user if it doesn't exist
-        admin_email = os.getenv('ADMIN_EMAIL')
-        if admin_email:
-            admin_user = User.query.filter_by(email=admin_email).first()
-            if not admin_user:
-                admin_user = User(
-                    email=admin_email,
-                    first_name='Gabriel',
-                    last_name='Effangha',
-                    auth_method='email',
-                    is_admin=True,
-                    is_active=True,
-                    email_verified=True,
-                    credits_balance=10000  # Give admin lots of credits
-                )
-                admin_user.set_password(os.getenv('ADMIN_PASSWORD'))
-                db.session.add(admin_user)
-                db.session.commit()
-                logger.info(f"Created admin user: {admin_email}")
-    
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Use socketio.run instead of app.run for WebSocket support
+    socketio.run(
+        app,
+        host='0.0.0.0',
+        port=int(os.getenv('PORT', 5000)),
+        debug=os.getenv('FLASK_ENV') == 'development',
+        allow_unsafe_werkzeug=True
+    )

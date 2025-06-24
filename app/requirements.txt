@@ -47,3 +47,8 @@ sentry-sdk[flask]==1.32.0
 
 # Image processing for profile pictures
 Pillow==10.0.1
+
+# Websockets
+flask-socketio==5.3.4
+python-socketio==5.8.0
+eventlet==0.33.3
