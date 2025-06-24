@@ -1,7 +1,7 @@
 import logging
 from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from flask import request
-from auth import verify_jwt_token
+from auth import auth_service
 from models import User, ProcessingJob, CreditTransaction
 from datetime import datetime
 import json
@@ -37,7 +37,7 @@ def authenticate_socket(auth_token):
             auth_token = auth_token[7:]
         
         # Verify token
-        payload = verify_jwt_token(auth_token)
+        payload = auth_service.verify_jwt_token(auth_token)
         user = User.query.get(payload['user_id'])
         
         if user and user.is_active:
