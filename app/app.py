@@ -129,18 +129,23 @@ def optimize_image_for_upload(file):
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
-        'version': '2.0.0',
-        'features': {
-            'authentication': True,
-            'rate_limiting': True,
-            'credit_system': True,
-            'google_oauth': bool(os.getenv('GOOGLE_CLIENT_ID')),
-            'email_service': bool(os.getenv('SMTP_USERNAME') or os.getenv('MAILGUN_API_KEY'))
-        }
-    })
+    try:
+        from websocket_service import get_active_connections_count
+
+        return jsonify({
+            'status': 'healthy',
+            'websocket_enabled': True,
+            'active_connections': get_active_connections_count(),
+            'timestamp': datetime.utcnow().isoformat(),
+            'version': '2.0.0',
+            'features': {
+                'authentication': True,
+                'rate_limiting': True,
+                'credit_system': True,
+                'google_oauth': bool(os.getenv('GOOGLE_CLIENT_ID')),
+                'email_service': bool(os.getenv('SMTP_USERNAME') or os.getenv('MAILGUN_API_KEY'))
+            }
+        })
 
 @app.route('/api/stats', methods=['GET'])
 @token_required
