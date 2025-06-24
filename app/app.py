@@ -42,7 +42,6 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 # CORS configuration - MUST come immediately after app creation
 CORS(app,
     origins="*",
-    supports_credentials=True,
     allow_headers=[
         'Content-Type', 
         'Authorization', 
