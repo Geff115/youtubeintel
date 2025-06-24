@@ -74,17 +74,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize database
 db = init_db(app)
 
-# Initialize SocketIO with enhanced CORS
-socketio.init_app(
-    app,
-    cors_allowed_origins="*",
-    logger=True,
-    engineio_logger=True,
-    transports=['polling', 'websocket'],
-    ping_interval=25,
-    ping_timeout=60,
-    upgrade=True
-)
+# Use the imported socketio instance to initialize the app
+socketio.init_app(app)
 
 # Register authentication blueprint
 app.register_blueprint(auth_bp)

@@ -10,17 +10,12 @@ logger = logging.getLogger(__name__)
 
 # Initialize SocketIO
 socketio = SocketIO(
-    cors_allowed_origins=[
-        "http://localhost:3000",
-        "http://localhost:5000",
-        "https://youtubeintel.com",
-        "https://www.youtubeintel.com",
-        "https://youtubeintel-backend.onrender.com",
-        "https://*.vercel.app"
-    ],
+    cors_allowed_origins="*",
     async_mode='eventlet',
     logger=True,
     engineio_logger=True
+    ping_interval=25,
+    ping_timeout=60
 )
 
 # Store active connections
@@ -29,6 +24,8 @@ active_connections = {}
 def authenticate_socket(auth_token):
     """Authenticate WebSocket connection using JWT token"""
     try:
+        logger.info(f"Attempting to authenticate with token: {auth_token[:20]}...")  # Log first 20 chars
+
         if not auth_token:
             logger.warning("No auth token provided for WebSocket connection")
             return None
@@ -36,9 +33,12 @@ def authenticate_socket(auth_token):
         # Remove 'Bearer ' prefix if present
         if auth_token.startswith('Bearer '):
             auth_token = auth_token[7:]
+            logger.info("Removed Bearer prefix from token")
         
         # Verify token
         payload = auth_service.verify_jwt_token(auth_token)
+        logger.info(f"Token payload: {payload}")
+
         if not payload:
             logger.warning("Invalid JWT token for WebSocket")
             return None
@@ -62,52 +62,57 @@ def handle_connect(auth):
     try:
         logger.info(f"WebSocket connection attempt from {request.sid}")
         
-        # Get token from auth data or query parameters
+        # Get token from multiple sources
         auth_token = None
+        
+        # Try auth object first
         if auth and isinstance(auth, dict):
             auth_token = auth.get('token')
         
-        # Fallback: try to get token from request args (for polling transport)
+        # Try query parameters
         if not auth_token:
             auth_token = request.args.get('token')
-            
-        # Fallback: try to get from headers
+        
+        # Try headers
         if not auth_token:
             auth_header = request.headers.get('Authorization')
-            if auth_header and auth_header.startswith('Bearer '):
-                auth_token = auth_header[7:]
+            if auth_header:
+                auth_token = auth_header.replace('Bearer ', '')
         
-        user = authenticate_socket(auth_token)
-        
-        if not user:
-            logger.warning(f"Unauthorized socket connection attempt from {request.sid}")
+        if not auth_token:
+            logger.error("No token provided in any expected location")
             disconnect()
             return False
         
-        # Store user info for this session
-        active_connections[request.sid] = {
-            'user_id': str(user.id),
-            'email': user.email,
-            'connected_at': datetime.utcnow().isoformat()
-        }
+        # Authenticate user
+        user = authenticate_socket(auth_token)
         
-        # Join user to their personal room
-        join_room(f"user_{user.id}")
-        
-        logger.info(f"User {user.email} connected via WebSocket: {request.sid}")
-        
-        # Send initial connection success
-        emit('connection_status', {
-            'status': 'connected',
-            'user_id': str(user.id),
-            'timestamp': datetime.utcnow().isoformat()
-        })
-        
-        # Send any pending notifications
-        send_pending_notifications(user.id)
-        
-        return True  # Explicitly return True for successful connection
-        
+        if user:
+            # Join user to their personal room
+            user_room = f"user_{user.id}"
+            join_room(user_room)
+            
+            # Store connection
+            active_connections[request.sid] = {
+                'user_id': user.id,
+                'email': user.email,
+                'connected_at': datetime.utcnow()
+            }
+            
+            # Send connection confirmation
+            emit('connection_status', {
+                'status': 'connected',
+                'user_id': user.id,
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+            logger.info(f"User {user.email} connected successfully")
+            return True
+        else:
+            logger.error("Authentication failed")
+            disconnect()
+            return False
+            
     except Exception as e:
         logger.error(f"Connection error: {str(e)}")
         disconnect()
