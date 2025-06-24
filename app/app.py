@@ -170,6 +170,19 @@ def auth_debug():
             'cors_working': True
         }), 401
 
+# Debug to test CORS
+@app.route('/api/cors-test', methods=['GET', 'OPTIONS'])
+def cors_test():
+    """Test CORS configuration"""
+    response = jsonify({
+        'message': 'CORS test successful',
+        'headers': dict(request.headers),
+        'method': request.method,
+        'origin': request.headers.get('Origin'),
+        'timestamp': datetime.utcnow().isoformat()
+    })
+    return response
+
 @app.route('/api/stats', methods=['GET', 'OPTIONS'])
 @token_required
 @rate_limit(credits_cost=0)
