@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
@@ -12,6 +12,7 @@ import base64
 import io
 import logging
 from datetime import datetime
+from auth import auth_service
 from payment_service import KorapayService, CREDIT_PACKAGES, get_package_by_credits
 from websocket_service import socketio, notify_job_progress, notify_job_completed, notify_credits_updated, notify_discovery_results
 
@@ -22,35 +23,25 @@ app = Flask(__name__)
 
 # CORS configuration for the application
 CORS(app,
-    origins=[
-        "http://localhost:3000",  # Local development (frontend)
-        "http://localhost:5000",  # Local development (backend)
-        "https://*.vercel.app",  # Production (Vercel frontend)
-        "https://youtubeintel-backend.onrender.com",  # Production (Render backend)
-        "https://accounts.google.com",  # Google authentication domain
-        # Add production frontend domain here after the frontend has been deployed
-    ],
+    origins="*",  # TEMPORARY - Allowing all origins for due to socketio issues
     supports_credentials=True,
-    allow_headers=[
-        'Content-Type',
-        'Authorization',
-        'X-Requested-With',
-        'Accept', 'Origin',
-        'X-CSRFToken',
-        'Access-Control-Allow-Credentials'
-    ],
+    allow_headers="*",
     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 )
+
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = make_response()
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add('Access-Control-Allow-Headers', "*")
+        response.headers.add('Access-Control-Allow-Methods', "*")
+        return response
 
 # Initialize SocketIO
 socketio.init_app(
     app,
-    cors_allowed_origins=[
-        "http://localhost:3000",
-        "http://localhost:5000",
-        "https://*.vercel.app",
-        "https://youtubeintel-backend.onrender.com",
-    ],
+    cors_allowed_origins="*",  # TEMPORARY - allow all origins
     logger=True,
     engineio_logger=True
 )
