@@ -30,6 +30,7 @@ def authenticate_socket(auth_token):
     """Authenticate WebSocket connection using JWT token"""
     try:
         if not auth_token:
+            logger.warning("No auth token provided for WebSocket connection")
             return None
         
         # Remove 'Bearer ' prefix if present
@@ -38,11 +39,19 @@ def authenticate_socket(auth_token):
         
         # Verify token
         payload = auth_service.verify_jwt_token(auth_token)
+        if not payload:
+            logger.warning("Invalid JWT token for WebSocket")
+            return None
+            
         user = User.query.get(payload['user_id'])
         
         if user and user.is_active:
+            logger.info(f"WebSocket authentication successful for user: {user.email}")
             return user
-        return None
+        else:
+            logger.warning(f"User not found or inactive: {payload.get('user_id')}")
+            return None
+            
     except Exception as e:
         logger.error(f"Socket authentication failed: {str(e)}")
         return None
@@ -51,8 +60,23 @@ def authenticate_socket(auth_token):
 def handle_connect(auth):
     """Handle client connection"""
     try:
-        # Get token from auth data
-        auth_token = auth.get('token') if auth else None
+        logger.info(f"WebSocket connection attempt from {request.sid}")
+        
+        # Get token from auth data or query parameters
+        auth_token = None
+        if auth and isinstance(auth, dict):
+            auth_token = auth.get('token')
+        
+        # Fallback: try to get token from request args (for polling transport)
+        if not auth_token:
+            auth_token = request.args.get('token')
+            
+        # Fallback: try to get from headers
+        if not auth_token:
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                auth_token = auth_header[7:]
+        
         user = authenticate_socket(auth_token)
         
         if not user:
@@ -82,9 +106,31 @@ def handle_connect(auth):
         # Send any pending notifications
         send_pending_notifications(user.id)
         
+        return True  # Explicitly return True for successful connection
+        
     except Exception as e:
         logger.error(f"Connection error: {str(e)}")
         disconnect()
+        return False
+
+@socketio.on('authenticate')
+def handle_authenticate(data):
+    """Handle authentication requests during the session"""
+    try:
+        if request.sid not in active_connections:
+            logger.warning(f"Authentication request from unconnected session: {request.sid}")
+            emit('auth_error', {'message': 'Not connected'})
+            return
+            
+        user_info = active_connections[request.sid]
+        emit('auth_success', {
+            'user_id': user_info['user_id'],
+            'email': user_info['email']
+        })
+        
+    except Exception as e:
+        logger.error(f"Authentication handler error: {str(e)}")
+        emit('auth_error', {'message': 'Authentication failed'})
 
 @socketio.on('disconnect')
 def handle_disconnect():
