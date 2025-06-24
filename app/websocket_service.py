@@ -15,7 +15,7 @@ socketio = SocketIO(
     logger=True,
     engineio_logger=True,
     ping_interval=25,
-    ping_timeout=60
+    ping_timeout=60,
     transports=['polling', 'websocket']
 )
 
