@@ -164,41 +164,40 @@ auth_service = AuthService()
 
 # Decorators for route protection
 def token_required(f):
-    """Decorator to require valid JWT token"""
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated_function(*args, **kwargs):
+        # Skip authentication for OPTIONS requests
+        if request.method == 'OPTIONS':
+            return '', 200
+            
         token = None
+        auth_header = request.headers.get('Authorization')
         
-        # Check for token in header
-        if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
+        if auth_header:
             try:
-                token = auth_header.split(" ")[1]  # Bearer <token>
-            except IndexError:
+                # Bearer token format
+                parts = auth_header.split()
+                if len(parts) == 2 and parts[0] == 'Bearer':
+                    token = parts[1]
+            except Exception:
                 return jsonify({'error': 'Invalid token format'}), 401
         
         if not token:
             return jsonify({'error': 'Token is missing'}), 401
         
         try:
-            # Verify token
             payload = auth_service.verify_jwt_token(token)
-            current_user_id = payload['user_id']
-            current_user_email = payload['email']
+            if not payload:
+                return jsonify({'error': 'Invalid or expired token'}), 401
             
-            # Add user info to request context
-            request.current_user = {
-                'id': current_user_id,
-                'email': current_user_email,
-                'token_payload': payload
-            }
+            # Attach user info to request
+            request.current_user = payload
+            return f(*args, **kwargs)
             
         except Exception as e:
-            return jsonify({'error': str(e)}), 401
-        
-        return f(*args, **kwargs)
+            return jsonify({'error': 'Token verification failed'}), 401
     
-    return decorated
+    return decorated_function
 
 def admin_required(f):
     """Decorator to require admin privileges"""
