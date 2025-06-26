@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
 import uuid
 import logging
-from auth import auth_service, validate_input
+from auth import auth_service, validate_input, token_required
 from rate_limiter import rate_limit
 from models import User, UserSession, db
 from email_service import EmailService
@@ -644,31 +644,27 @@ def signout():
         return jsonify({'error': 'Signout failed'}), 500
 
 @auth_bp.route('/me', methods=['GET'])
+@token_required
 def get_current_user():
     """Get current user information"""
-    from auth import token_required
-    
-    @token_required
-    def _get_user():
-        try:
-            user = User.query.get(request.current_user['id'])
-            if not user:
-                return jsonify({'error': 'User not found'}), 404
-            
-            # Update activity
-            user.update_activity()
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'user': user.to_dict()
-            }), 200
-            
-        except Exception as e:
-            logger.error(f"Get current user failed: {str(e)}")
-            return jsonify({'error': 'Failed to get user information'}), 500
-    
-    return _get_user()
+    try:
+        # Now request.current_user will be properly set by the decorator
+        user = User.query.get(request.current_user['id'])
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Update activity
+        user.update_activity()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'user': user.to_dict()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Get current user failed: {str(e)}")
+        return jsonify({'error': 'Failed to get user information'}), 500
 
 @auth_bp.route('/sessions', methods=['GET'])
 def get_user_sessions():

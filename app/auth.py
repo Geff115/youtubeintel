@@ -190,11 +190,21 @@ def token_required(f):
             if not payload:
                 return jsonify({'error': 'Invalid or expired token'}), 401
             
+            # DEBUG: Log the payload structure
+            logger.info(f"JWT payload: {payload}")
+            logger.info(f"JWT payload keys: {list(payload.keys())}")
+            
+            # Check if 'id' field exists
+            if 'id' not in payload:
+                logger.error(f"No 'id' field in JWT payload. Available fields: {list(payload.keys())}")
+                return jsonify({'error': 'Invalid token structure'}), 401
+            
             # Attach user info to request
             request.current_user = payload
             return f(*args, **kwargs)
             
         except Exception as e:
+            logger.error(f"Token verification failed: {str(e)}")
             return jsonify({'error': 'Token verification failed'}), 401
     
     return decorated_function

@@ -1967,6 +1967,76 @@ def websocket_info():
         logger.error(f"WebSocket info error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+# AI prediction for channel growth endpoint
+@app.route('/api/ai/predict-growth', methods=['POST'])
+@token_required
+@rate_limit(credits_cost=5)
+def predict_growth():
+    try:
+        data = request.get_json()
+        channel_id = data.get("channel_id")
+
+        # Fetch metadata and recent videos
+        channel = Channel.query.filter_by(channel_id=channel_id).first()
+        videos = Video.query.filter_by(channel_external_id=channel_id).order_by(Video.published_at.desc()).limit(10).all()
+
+        # Prepare data for AI
+        prompt = build_growth_prompt(channel, videos)
+
+        # Call Gemini
+        import requests
+        headers = {"Authorization": f"Bearer {os.getenv('GEMINI_API_KEY')}"}
+        response = requests.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+            json={"contents": [{"parts": [{"text": prompt}]}]},
+            headers=headers
+        )
+
+        prediction = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+
+        return jsonify({"success": True, "prediction": prediction})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def build_growth_prompt(channel, videos):
+    if not channel:
+        return "Predict the YouTube channel's growth based on unknown metadata."
+
+    channel_summary = f"""
+You are an AI expert in analyzing YouTube channel growth. Below is a channel's metadata and recent video data.
+
+Channel Metadata:
+- Title: {channel.title}
+- Description: {channel.description[:300]}...
+- Category: {channel.category}
+- Language: {channel.language or "N/A"}
+- Created At: {channel.created_at.strftime("%Y-%m-%d")}
+- Subscriber Count: {channel.subscriber_count}
+- Video Count: {channel.video_count}
+- Total Views: {channel.view_count}
+
+Recent Videos:
+"""
+
+    for video in videos:
+        video_data = f"""
+- Title: {video.title}
+  Published At: {video.published_at.strftime('%Y-%m-%d')}
+  Views: {video.view_count}
+  Likes: {video.like_count}
+  Comments: {video.comment_count}
+"""
+        channel_summary += video_data
+
+    channel_summary += """
+Instructions:
+Analyze the growth pattern, engagement trend, and estimate the channel's subscriber and view growth over the next 3 to 6 months.
+Return a brief but professional summary (3-5 sentences) with projected numbers and reasoning. Do not include disclaimers or uncertainty language.
+"""
+
+    return channel_summary
+
 # Error handlers
 @app.errorhandler(401)
 def unauthorized(error):
