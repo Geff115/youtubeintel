@@ -1,3 +1,7 @@
+import eventlet
+# Making all subsequent operations non-blocking
+eventlet.monkey_patch()
+
 from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS, cross_origin
 from json import JSONEncoder
