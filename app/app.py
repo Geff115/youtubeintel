@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS, cross_origin
+from json import JSONEncoder
 import os
 from dotenv import load_dotenv
 import uuid
@@ -33,8 +34,16 @@ from auth_routes import auth_bp
 
 load_dotenv()
 
+# A custom JSON encoder to handle UUID serialization globally
+class UUIDEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, uuid.UUID):
+            return str(obj)
+        return super().default(obj)
+
 # Create Flask app
 app = Flask(__name__)
+app.json_encoder = UUIDEncoder
 
 # CRITICAL: Setting this BEFORE any route definitions
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -1743,7 +1752,7 @@ def purchase_credits():
             
             # Notify user about pending purchase via WebSocket
             notify_credits_updated(
-                user_id=user.id,
+                user_id=str(user.id),
                 transaction_type='purchase_pending',
                 amount=package['credits'],
                 new_balance=user.credits_balance,
@@ -1817,7 +1826,14 @@ def korapay_webhook():
                 
                 logger.info(f"✅ Payment successful: Added {transaction.credits_amount} credits to {transaction.user.email}")
                 
-                # You could send an email notification here
+                # You could send an email notification here or notify via websockets
+                notify_credits_updated(
+                    user_id=str(transaction.user.id),
+                    transaction_type='purchase',
+                    amount=transaction.credits_amount,
+                    new_balance=transaction.user.credits_balance,
+                    message=f"Added {transaction.credits_amount} credits to your account"
+                )
                 
                 return jsonify({
                     'status': 'success',

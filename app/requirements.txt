@@ -52,3 +52,6 @@ Pillow==10.0.1
 flask-socketio==5.3.4
 python-socketio==5.8.0
 eventlet==0.33.3
+
+# JSON encoder for UUID serialization
+flask-JSON==0.4.0

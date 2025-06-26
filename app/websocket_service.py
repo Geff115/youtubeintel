@@ -90,12 +90,12 @@ def handle_connect(auth):
         
         if user:
             # Join user to their personal room
-            user_room = f"user_{user.id}"
+            user_room = f"user_{str(user.id)}"  # Convert UUID to string
             join_room(user_room)
             
             # Store connection
             active_connections[request.sid] = {
-                'user_id': user.id,
+                'user_id': str(user.id),
                 'email': user.email,
                 'connected_at': datetime.utcnow()
             }
@@ -103,7 +103,7 @@ def handle_connect(auth):
             # Send connection confirmation
             emit('connection_status', {
                 'status': 'connected',
-                'user_id': user.id,
+                'user_id': str(user.id),
                 'timestamp': datetime.utcnow().isoformat()
             })
             
@@ -147,7 +147,7 @@ def handle_disconnect():
             user_id = user_info['user_id']
             
             # Leave user room
-            leave_room(f"user_{user_id}")
+            leave_room(f"user_{str(user_id)}")
             
             # Remove from active connections
             del active_connections[request.sid]
@@ -172,13 +172,13 @@ def handle_job_subscription(data):
             return
         
         # Join job-specific room
-        join_room(f"job_{job_id}")
+        join_room(f"job_{str(job_id)}")
         
         # Send current job status
         job = ProcessingJob.query.filter_by(job_id=job_id).first()
         if job:
             emit('job_update', {
-                'job_id': job_id,
+                'job_id': str(job_id),
                 'status': job.status,
                 'progress': job.progress or 0,
                 'message': f"Subscribed to job {job_id}",
@@ -206,7 +206,7 @@ def send_pending_notifications(user_id):
                 'total_items': job.total_items,
                 'completed_at': job.completed_at.isoformat() if job.completed_at else None,
                 'message': f'{job.job_type} completed successfully'
-            }, room=f"user_{user_id}")
+            }, room=f"user_{str(user_id)}")
         
         # Get recent credit transactions
         recent_transactions = CreditTransaction.query.filter_by(
@@ -221,7 +221,7 @@ def send_pending_notifications(user_id):
                     'new_balance': transaction.user.credits_balance,
                     'message': f'Credits purchased: +{transaction.credits_amount}',
                     'timestamp': transaction.created_at.isoformat()
-                }, room=f"user_{user_id}")
+                }, room=f"user_{str(user_id)}")
                 
     except Exception as e:
         logger.error(f"Error sending pending notifications: {str(e)}")
@@ -232,13 +232,13 @@ def notify_job_progress(job_id, status, progress=None, message=None, error=None)
     """Notify clients about job progress"""
     try:
         socketio.emit('job_update', {
-            'job_id': job_id,
+            'job_id': str(job_id),
             'status': status,
             'progress': progress,
             'message': message,
             'error': error,
             'timestamp': datetime.utcnow().isoformat()
-        }, room=f"job_{job_id}")
+        }, room=f"job_{str(job_id)}")
         
         logger.info(f"Sent job update for {job_id}: {status}")
     except Exception as e:
@@ -248,7 +248,7 @@ def notify_job_completed(job_id, job_type, total_items=None, user_id=None):
     """Notify when job is completed"""
     try:
         notification = {
-            'job_id': job_id,
+            'job_id': str(job_id),
             'job_type': job_type,
             'total_items': total_items,
             'message': f'{job_type.replace("_", " ").title()} completed successfully',
@@ -256,11 +256,11 @@ def notify_job_completed(job_id, job_type, total_items=None, user_id=None):
         }
         
         # Send to job subscribers
-        socketio.emit('job_completed', notification, room=f"job_{job_id}")
+        socketio.emit('job_completed', notification, room=f"job_{jstr(job_id)}")
         
         # Send to user if specified
         if user_id:
-            socketio.emit('job_completed', notification, room=f"user_{user_id}")
+            socketio.emit('job_completed', notification, room=f"user_{str(user_id)}")
             
         logger.info(f"Sent job completion notification for {job_id}")
     except Exception as e:
@@ -275,7 +275,7 @@ def notify_credits_updated(user_id, transaction_type, amount, new_balance, messa
             'new_balance': new_balance,
             'message': message or f'Credits {transaction_type}: {amount:+d}',
             'timestamp': datetime.utcnow().isoformat()
-        }, room=f"user_{user_id}")
+        }, room=f"user_{str(user_id)}")
         
         logger.info(f"Sent credit update to user {user_id}: {amount:+d}")
     except Exception as e:
@@ -287,10 +287,10 @@ def notify_discovery_results(user_id, channel_count, discovery_method, job_id=No
         socketio.emit('discovery_results', {
             'channel_count': channel_count,
             'discovery_method': discovery_method,
-            'job_id': job_id,
+            'job_id': str(job_id) if job_id else None,
             'message': f'Found {channel_count} new channels via {discovery_method}',
             'timestamp': datetime.utcnow().isoformat()
-        }, room=f"user_{user_id}")
+        }, room=f"user_{str(user_id)}")
         
         logger.info(f"Sent discovery results to user {user_id}: {channel_count} channels")
     except Exception as e:
@@ -302,7 +302,8 @@ def get_active_connections_count():
 
 def get_user_connection_status(user_id):
     """Check if user has active WebSocket connection"""
+    user_id_str = str(user_id)  # Convert to string for comparison
     for sid, info in active_connections.items():
-        if info['user_id'] == str(user_id):
+        if info['user_id'] == user_id_str:
             return True
     return False
