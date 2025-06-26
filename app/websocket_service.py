@@ -13,10 +13,10 @@ socketio = SocketIO(
     cors_allowed_origins="*",
     async_mode='eventlet',
     logger=True,
-    engineio_logger=True,
-    ping_interval=25,
-    ping_timeout=60,
-    transports=['polling', 'websocket']
+    engineio_logger=False,
+    ping_interval=10,
+    ping_timeout=30,
+    transports=['websocket']
 )
 
 # Store active connections

@@ -49,13 +49,14 @@ app.json_encoder = UUIDEncoder
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # CORS configuration - MUST come immediately after app creation
-CORS(app,
-    resources={r"/*": {"origins": "*"}},
-    allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    supports_credentials=True,
-    expose_headers=['Content-Range', 'X-Content-Range']
-)
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://localhost:3000", "https://your-production-domain.com"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"],
+        "supports_credentials": True
+    }
+})
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://youtube:youtube123@localhost:5432/youtube_channels')
