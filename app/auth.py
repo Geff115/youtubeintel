@@ -190,17 +190,16 @@ def token_required(f):
             if not payload:
                 return jsonify({'error': 'Invalid or expired token'}), 401
             
-            # DEBUG: Log the payload structure
-            logger.info(f"JWT payload: {payload}")
-            logger.info(f"JWT payload keys: {list(payload.keys())}")
+            # Get user ID from either 'user_id' or 'id' field
+            user_id = payload.get('user_id') or payload.get('id')
+            if not user_id:
+                logger.error(f"No user ID field in JWT payload. Available fields: {list(payload.keys())}")
+                return jsonify({'error': 'Invalid token structure - missing user ID'}), 401
             
-            # Check if 'id' field exists
-            if 'id' not in payload:
-                logger.error(f"No 'id' field in JWT payload. Available fields: {list(payload.keys())}")
-                return jsonify({'error': 'Invalid token structure'}), 401
+            # Attach user info to request with normalized 'id' field
+            request.current_user = payload.copy()
+            request.current_user['id'] = user_id  # Normalize to 'id' for consistency
             
-            # Attach user info to request
-            request.current_user = payload
             return f(*args, **kwargs)
             
         except Exception as e:
