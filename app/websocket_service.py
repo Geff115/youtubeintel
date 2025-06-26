@@ -24,9 +24,7 @@ active_connections = {}
 
 def authenticate_socket(auth_token):
     """Authenticate WebSocket connection using JWT token"""
-    # Create a scoped session for this connection
     from database import db
-    session = db.create_scoped_session()
 
     try:
         logger.info(f"Attempting to authenticate with token: {auth_token[:20]}...")  # Log first 20 chars
@@ -48,7 +46,7 @@ def authenticate_socket(auth_token):
             logger.warning("Invalid JWT token for WebSocket")
             return None
             
-        user = session.query(User).get(payload['user_id'])
+        user = User.query.get(payload['user_id'])
         
         if user and user.is_active:
             logger.info(f"WebSocket authentication successful for user: {user.email}")
@@ -60,9 +58,6 @@ def authenticate_socket(auth_token):
     except Exception as e:
         logger.error(f"Socket authentication failed: {str(e)}")
         return None
-    
-    finally:
-        session.remove()
 
 @socketio.on('connect')
 def handle_connect(auth):
@@ -97,7 +92,7 @@ def handle_connect(auth):
         
         if user:
             # Join user to their personal room
-            user_room = f"user_{str(user.id)}"  # Convert UUID to string
+            user_room = f"user_{str(user.id)}"  # Converting UUID to string to make it JSON serializable
             join_room(user_room)
             
             # Store connection
