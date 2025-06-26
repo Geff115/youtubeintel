@@ -31,7 +31,6 @@ from tasks import (
     celery_app
 )
 from auth_routes import auth_bp
-from sqlalchemy.orm import scoped_session, sessionmaker
 
 load_dotenv()
 
@@ -62,20 +61,6 @@ CORS(app, resources={
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://youtube:youtube123@localhost:5432/youtube_channels')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-@app.before_request
-def before_request():
-    # Create a scoped session for each request
-    db.session = db.create_scoped_session(options={
-        'bind': db.engine,
-        'binds': {},
-        'expire_on_commit': False
-    })
-
-@app.teardown_request
-def teardown_request(exception=None):
-    # Remove the scoped session after each request
-    db.session.remove()
 
 # Initialize database
 db = init_db(app)

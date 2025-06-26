@@ -35,10 +35,8 @@ def traditional_signup():
     try:
         data = request.validated_data
 
-        session = db.create_scoped_session()
-        
         # Check if user already exists
-        existing_user = session.query(User).filter_by(email=data['email'].lower()).first()
+        existing_user = User.query.filter_by(email=data['email'].lower()).first()
         if existing_user:
             return jsonify({'error': 'User already exists with this email'}), 409
         
@@ -78,8 +76,8 @@ def traditional_signup():
         verification_token = user.generate_verification_token()
         
         # Save user
-        session.add(user)
-        session.commit()
+        db.session.add(user)
+        db.session.commit()
         
         # Send verification email
         try:
@@ -113,9 +111,6 @@ def traditional_signup():
         db.session.rollback()
         logger.error(f"Signup failed: {str(e)}")
         return jsonify({'error': 'Account creation failed'}), 500
-    
-    finally:
-        session.remove()
 
 @auth_bp.route('/signup/google', methods=['POST'])
 @rate_limit(credits_cost=0, limit_type='requests')
@@ -129,8 +124,6 @@ def google_signup():
     try:
         data = request.validated_data
 
-        session = db.create_scoped_session()
-        
         # Verify Google token
         try:
             google_user = auth_service.verify_google_token(data['id_token'])
@@ -145,7 +138,7 @@ def google_signup():
             return jsonify({'error': 'You must agree to the terms and conditions'}), 400
         
         # Check if user already exists
-        existing_user = session.query(User).filter_by(email=google_user['email'].lower()).first()
+        existing_user = User.query.filter_by(email=google_user['email'].lower()).first()
         if existing_user:
             if existing_user.auth_method == 'google':
                 return jsonify({'error': 'Account already exists. Please sign in instead.'}), 409
@@ -170,8 +163,8 @@ def google_signup():
         )
         
         # Save user
-        session.add(user)
-        session.commit()
+        db.session.add(user)
+        db.session.commit()
         
         logger.info(f"New Google user registered: {user.email}")
         
@@ -194,9 +187,6 @@ def google_signup():
         db.session.rollback()
         logger.error(f"Google signup failed: {str(e)}")
         return jsonify({'error': 'Account creation failed'}), 500
-    
-    finally:
-        session.remove()
 
 @auth_bp.route('/signin', methods=['POST'])
 @rate_limit(credits_cost=0, limit_type='requests')
@@ -208,12 +198,9 @@ def traditional_signin():
     """Traditional email/password signin"""
     try:
         data = request.validated_data
-
-        # Create a new session for this thread for WebSockets eventlet workers
-        session = db.create_scoped_session()
         
         # Find user
-        user = session.query(User).filter_by(
+        user = User.query.filter_by(
             email=data['email'].lower(),
             auth_method='email'
         ).first()
@@ -242,8 +229,8 @@ def traditional_signin():
             expires_at=datetime.utcnow() + timedelta(days=30)
         )
         
-        session.add(session_record)
-        session.commit()
+        db.session.add(session_record)
+        db.session.commit()
         
         logger.info(f"User signed in: {user.email}")
         
@@ -260,9 +247,6 @@ def traditional_signin():
         db.session.rollback()
         logger.error(f"Signin failed: {str(e)}")
         return jsonify({'error': 'Sign in failed'}), 500
-    
-    finally:
-        session.remove  # Ensure session is closed
 
 @auth_bp.route('/signin/google', methods=['POST'])
 @rate_limit(credits_cost=0, limit_type='requests')
@@ -273,8 +257,6 @@ def google_signin():
     """Google OAuth signin"""
     try:
         data = request.validated_data
-
-        session = db.create_scoped_session()
         
         # Verify Google token
         try:
@@ -283,7 +265,7 @@ def google_signin():
             return jsonify({'error': 'Invalid Google token'}), 400
         
         # Find user
-        user = session.query(User).filter_by(
+        user = User.query.filter_by(
             email=google_user['email'].lower(),
             auth_method='google'
         ).first()
@@ -340,8 +322,8 @@ def google_signin():
             expires_at=datetime.utcnow() + timedelta(days=30)
         )
         
-        session.add(session_record)
-        session.commit()
+        db.session.add(session_record)
+        db.session.commit()
         
         logger.info(f"Google user signed in: {user.email}")
         
@@ -358,9 +340,6 @@ def google_signin():
         db.session.rollback()
         logger.error(f"Google signin failed: {str(e)}")
         return jsonify({'error': 'Sign in failed'}), 500
-    
-    finally:
-        session.remove()
 
 @auth_bp.route('/google/callback', methods=['POST'])
 @rate_limit(credits_cost=0, limit_type='requests')
@@ -422,8 +401,6 @@ def refresh_token():
     """Refresh access token using refresh token"""
     try:
         data = request.validated_data
-
-        session = db.create_scoped_session()
         
         # Verify refresh token
         try:
@@ -436,7 +413,7 @@ def refresh_token():
             return jsonify({'error': 'Invalid refresh token'}), 401
         
         # Find user and verify session
-        user = session.query(User).get(payload['user_id'])
+        user = User.query.get(payload['user_id'])
         if not user or not user.is_active:
             return jsonify({'error': 'User not found or inactive'}), 404
         
@@ -449,7 +426,7 @@ def refresh_token():
         
         # Update activity
         user.update_activity()
-        session.commit()
+        db.session.commit()
         
         return jsonify({
             'success': True,
@@ -460,9 +437,6 @@ def refresh_token():
     except Exception as e:
         logger.error(f"Token refresh failed: {str(e)}")
         return jsonify({'error': 'Token refresh failed'}), 500
-    
-    finally:
-        session.close()
 
 @auth_bp.route('/forgot-password', methods=['POST'])
 @rate_limit(credits_cost=0, limit_type='requests')
@@ -473,11 +447,9 @@ def forgot_password():
     """Request password reset"""
     try:
         data = request.validated_data
-
-        session = db.create_scoped_session()
         
         # Find user
-        user = session.query(User).filter_by(
+        user = User.query.filter_by(
             email=data['email'].lower(),
             auth_method='email'
         ).first()
@@ -488,7 +460,7 @@ def forgot_password():
         if user and user.is_active:
             # Generate reset token
             reset_token = user.generate_reset_token()
-            session.commit()
+            db.session.commit()
             
             # Send reset email
             try:
@@ -509,9 +481,6 @@ def forgot_password():
     except Exception as e:
         logger.error(f"Forgot password failed: {str(e)}")
         return jsonify({'error': 'Request failed. Please try again.'}), 500
-    
-    finally:
-        session.remove()
 
 @auth_bp.route('/reset-password', methods=['POST'])
 @rate_limit(credits_cost=0, limit_type='requests')
@@ -523,11 +492,9 @@ def reset_password():
     """Reset password with token"""
     try:
         data = request.validated_data
-
-        session = db.create_scoped_session()
         
         # Find user with reset token
-        user = session.query(User).filter_by(reset_token=data['token']).first()
+        user = User.query.filter_by(reset_token=data['token']).first()
         
         if not user or not user.reset_token_expires or datetime.utcnow() > user.reset_token_expires:
             return jsonify({'error': 'Invalid or expired reset token'}), 400
@@ -549,7 +516,7 @@ def reset_password():
         user.clear_session()
         UserSession.query.filter_by(user_id=user.id).update({'is_active': False})
         
-        session.commit()
+        db.session.commit()
         
         logger.info(f"Password reset for user: {user.email}")
         
@@ -559,12 +526,9 @@ def reset_password():
         }), 200
         
     except Exception as e:
-        session.rollback()
+        db.session.rollback()
         logger.error(f"Password reset failed: {str(e)}")
         return jsonify({'error': 'Password reset failed'}), 500
-    
-    finally:
-        session.remove()
 
 @auth_bp.route('/verify-email', methods=['POST'])
 @validate_input(
@@ -574,18 +538,16 @@ def verify_email():
     """Verify email address with token"""
     try:
         data = request.validated_data
-
-        session = db.create_scoped_session()
         
         # Find user with verification token
-        user = session.query(User).filter_by(verification_token=data['token']).first()
+        user = db.User.filter_by(verification_token=data['token']).first()
         
         if not user or not user.verification_token_expires or datetime.utcnow() > user.verification_token_expires:
             return jsonify({'error': 'Invalid or expired verification token'}), 400
         
         # Verify email
         user.verify_email()
-        session.commit()
+        db.session.commit()
         
         logger.info(f"Email verified for user: {user.email}")
         
@@ -598,9 +560,6 @@ def verify_email():
         db.session.rollback()
         logger.error(f"Email verification failed: {str(e)}")
         return jsonify({'error': 'Email verification failed'}), 500
-    
-    finally:
-        session.remove()
 
 @auth_bp.route('/resend-verification', methods=['POST'])
 @rate_limit(credits_cost=0, limit_type='requests')
@@ -611,10 +570,8 @@ def resend_verification():
     """Resend email verification"""
     try:
         data = request.validated_data
-
-        session = db.create_scoped_session()
         
-        user = session.query(User).filter_by(email=data['email'].lower()).first()
+        user = User.query.filter_by(email=data['email'].lower()).first()
         
         if not user:
             return jsonify({'error': 'User not found'}), 404
@@ -624,7 +581,7 @@ def resend_verification():
         
         # Generate new verification token
         verification_token = user.generate_verification_token()
-        session.commit()
+        db.session.commit()
         
         # Send verification email
         try:
@@ -645,9 +602,6 @@ def resend_verification():
     except Exception as e:
         logger.error(f"Resend verification failed: {str(e)}")
         return jsonify({'error': 'Failed to resend verification'}), 500
-    
-    finally:
-        session.remove()
 
 @auth_bp.route('/signout', methods=['POST'])
 @validate_input(
@@ -658,14 +612,12 @@ def signout():
     try:
         data = request.validated_data
 
-        session = db.create_scoped_session()
-
         refresh_token = data.get('refresh_token')
         
         if refresh_token:
             try:
                 payload = auth_service.verify_jwt_token(refresh_token)
-                user = session.query(User).get(payload['user_id'])
+                user = User.query.get(payload['user_id'])
                 
                 if user:
                     # Clear user session
@@ -677,7 +629,7 @@ def signout():
                         session_token=refresh_token
                     ).update({'is_active': False})
                     
-                    session.commit()
+                    db.session.commit()
                     logger.info(f"User signed out: {user.email}")
                     
             except Exception as e:
@@ -691,25 +643,20 @@ def signout():
     except Exception as e:
         logger.error(f"Signout failed: {str(e)}")
         return jsonify({'error': 'Signout failed'}), 500
-    
-    finally:
-        session.commit()
 
 @auth_bp.route('/me', methods=['GET'])
 @token_required
 def get_current_user():
     """Get current user information"""
-    session = db.create_scoped_session()
-
     try:
         # Now request.current_user will be properly set by the decorator
-        user = session.query(User).get(request.current_user['id'])
+        user = User.query.get(request.current_user['id'])
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
         # Update activity
         user.update_activity()
-        session.commit()
+        db.session.commit()
         
         return jsonify({
             'success': True,
@@ -719,9 +666,6 @@ def get_current_user():
     except Exception as e:
         logger.error(f"Get current user failed: {str(e)}")
         return jsonify({'error': 'Failed to get user information'}), 500
-    
-    finally:
-        session.remove()
 
 @auth_bp.route('/sessions', methods=['GET'])
 def get_user_sessions():
@@ -796,9 +740,7 @@ def change_password():
         try:
             data = request.validated_data
 
-            session = db.create_scoped_session()
-
-            user = session.query(User).get(request.current_user['id'])
+            user = User.query.get(request.current_user['id'])
             
             if not user:
                 return jsonify({'error': 'User not found'}), 404
@@ -827,7 +769,7 @@ def change_password():
                 UserSession.session_token != user.refresh_token
             ).update({'is_active': False})
             
-            session.commit()
+            db.session.commit()
             
             logger.info(f"Password changed for user: {user.email}")
             
@@ -840,9 +782,6 @@ def change_password():
             db.session.rollback()
             logger.error(f"Password change failed: {str(e)}")
             return jsonify({'error': 'Password change failed'}), 500
-        
-        finally:
-            session.remove()
     
     return _change_password()
 
