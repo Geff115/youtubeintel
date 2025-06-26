@@ -12,7 +12,18 @@ migrate = Migrate()
 
 def init_db(app):
     """Initialize database with Flask app"""
-    
+
+    def create_scoped_session(self, options=None):
+        """Create a scoped session for thread safety"""
+        if options is None:
+            options = {}
+        return scoped_session(
+            sessionmaker(
+                bind=self.engine,
+                **options
+            )
+        )
+
     # Always use the DATABASE_URL from environment (Supabase)
     database_url = os.getenv('DATABASE_URL')
     
