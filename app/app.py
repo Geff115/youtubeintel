@@ -55,7 +55,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 # CORS configuration - MUST come immediately after app creation
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://localhost:3000", "https://youtubeintel-frontend.vercel.app/"],
+        "origins": ["http://localhost:3000", "https://youtubeintel-frontend.vercel.app"],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"],
         "supports_credentials": True
