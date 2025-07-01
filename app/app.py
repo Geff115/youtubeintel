@@ -2076,12 +2076,12 @@ def internal_error(error):
     db.session.rollback()
     return jsonify({'error': 'Internal server error'}), 500
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
     # Use socketio.run instead of app.run for WebSocket support
-    socketio.run(
-        app,
-        host='0.0.0.0',
-        port=int(os.getenv('PORT', 5000)),
-        debug=True,
-        allow_unsafe_werkzeug=True
-    )
+    #socketio.run(
+        #app,
+        #host='0.0.0.0',
+        #port=int(os.getenv('PORT', 5000)),
+        #debug=True,
+        #allow_unsafe_werkzeug=True
+    #)
