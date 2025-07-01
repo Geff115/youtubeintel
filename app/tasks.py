@@ -19,16 +19,16 @@ import requests
 import time
 import random
 
-from models import Channel, Video, APIKey, ProcessingJob, ChannelDiscovery
-from youtube_service import YouTubeService
-from external_services import ExternalChannelDiscovery
+from app.models import Channel, Video, APIKey, ProcessingJob, ChannelDiscovery
+from app.youtube_service import YouTubeService
+from app.external_services import ExternalChannelDiscovery
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize Celery with Redis configuration
-from redis_config import get_celery_broker_url
+from app.redis_config import get_celery_broker_url
 
 celery_app = Celery('youtube_processor')
 
@@ -949,7 +949,7 @@ def process_discovery_batch(batch_size, session):
 def monitor_system_health():
     """Monitor system health and performance"""
     try:
-        from redis_config import test_redis_connection
+        from app.redis_config import test_redis_connection
         
         # Test Redis connection
         redis_status = test_redis_connection()

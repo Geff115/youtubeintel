@@ -1,8 +1,8 @@
 import logging
 from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from flask import request
-from auth import auth_service
-from models import User, ProcessingJob, CreditTransaction
+from app.auth import auth_service
+from app.models import User, ProcessingJob, CreditTransaction
 from datetime import datetime
 import json
 
@@ -24,7 +24,7 @@ active_connections = {}
 
 def authenticate_socket(auth_token):
     """Authenticate WebSocket connection using JWT token"""
-    from database import db
+    from app.database import db
 
     try:
         logger.info(f"Attempting to authenticate with token: {auth_token[:20]}...")  # Log first 20 chars

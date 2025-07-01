@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import json
 import re
 from urllib.parse import urljoin, urlparse
-from models import APIKey
+from app.models import APIKey
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os
@@ -203,7 +203,7 @@ class ExternalChannelDiscovery:
     def discover_via_keyword_search(self, channel_id: str, keywords: List[str]) -> List[Dict]:
         """Discover channels by searching for similar keywords"""
         try:
-            from youtube_service import YouTubeService
+            from app.youtube_service import YouTubeService
             
             youtube_service = YouTubeService()
             similar_channels = []
@@ -261,7 +261,7 @@ class ExternalChannelDiscovery:
     def discover_via_youtube_featured_channels(self, channel_id: str) -> List[Dict]:
         """Discover channels via YouTube's featured channels section"""
         try:
-            from youtube_service import YouTubeService
+            from app.youtube_service import YouTubeService
             youtube_service = YouTubeService()
             
             # Get featured channels using YouTube API
@@ -288,7 +288,7 @@ class ExternalChannelDiscovery:
     def discover_via_youtube_collaborations(self, channel_id: str) -> List[Dict]:
         """Discover channels by analyzing video collaborations and mentions"""
         try:
-            from youtube_service import YouTubeService
+            from app.youtube_service import YouTubeService
             youtube_service = YouTubeService()
             
             # Get recent videos for the channel
@@ -355,7 +355,7 @@ class ExternalChannelDiscovery:
         try:
             # First, get channel metadata to extract keywords
             session = self.get_db_session()
-            from models import Channel
+            from app.models import Channel
             
             channel = session.query(Channel).filter_by(channel_id=channel_id).first()
             if not channel:

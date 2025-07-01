@@ -17,16 +17,15 @@ import base64
 import io
 import logging
 from datetime import datetime
-from auth import auth_service
-from payment_service import KorapayService, CREDIT_PACKAGES, get_package_by_credits
-from websocket_service import socketio, notify_job_progress, notify_job_completed, notify_credits_updated, notify_discovery_results
+from app.payment_service import KorapayService, CREDIT_PACKAGES, get_package_by_credits
+from app.websocket_service import socketio, notify_job_progress, notify_job_completed, notify_credits_updated, notify_discovery_results
 
-from redis_config import test_redis_connection
-from auth import token_required, admin_required, validate_input
-from rate_limiter import rate_limit, rate_limiter
-from database import init_db
-from models import Channel, Video, APIKey, ProcessingJob, ChannelDiscovery, User, CreditTransaction, UserSession, APIUsageLog
-from tasks import (
+from app.redis_config import test_redis_connection
+from app.auth import auth_service, token_required, admin_required, validate_input
+from app.rate_limiter import rate_limit, rate_limiter
+from app.database import init_db
+from app.models import Channel, Video, APIKey, ProcessingJob, ChannelDiscovery, User, CreditTransaction, UserSession, APIUsageLog
+from app.tasks import (
     migrate_channel_data, 
     fetch_channel_metadata, 
     fetch_channel_videos,
@@ -34,7 +33,7 @@ from tasks import (
     batch_process_channels,
     celery_app
 )
-from auth_routes import auth_bp
+from app.auth_routes import auth_bp
 
 load_dotenv()
 
@@ -120,7 +119,7 @@ def optimize_image_for_upload(file):
 def health_check():
     """Health check endpoint"""
     try:
-        from websocket_service import get_active_connections_count
+        from app.websocket_service import get_active_connections_count
 
         return jsonify({
             'status': 'healthy',
@@ -1623,7 +1622,7 @@ def get_worker_status():
 @app.route('/api/credit-packages', methods=['GET', 'OPTIONS'])
 def get_credit_packages():
     """Get available credit packages (Korapay-friendly)"""
-    from payment_service import KORAPAY_PACKAGES
+    from app.payment_service import KORAPAY_PACKAGES
     
     return jsonify({
         'packages': KORAPAY_PACKAGES,
@@ -1652,7 +1651,7 @@ def get_user_credits(email):
     """Get user's credit balance and transaction history"""
     try:
         # Import here to avoid circular imports
-        from models import User, CreditTransaction
+        from app.models import User, CreditTransaction
         
         user = User.query.filter_by(email=email).first()
         if not user:
@@ -1706,7 +1705,7 @@ def purchase_credits():
             return jsonify({'error': 'Package ID and email are required'}), 400
         
         # Import KORAPAY_PACKAGES instead of CREDIT_PACKAGES
-        from payment_service import KORAPAY_PACKAGES
+        from app.payment_service import KORAPAY_PACKAGES
         
         if package_id not in KORAPAY_PACKAGES:
             return jsonify({'error': f'Invalid package ID. Available: {list(KORAPAY_PACKAGES.keys())}'}), 400
@@ -1725,7 +1724,7 @@ def purchase_credits():
         
         if checkout['success']:
             # Import models here to avoid circular imports
-            from models import User, CreditTransaction
+            from app.models import User, CreditTransaction
             
             # Get or create user
             user = User.query.filter_by(email=customer_email).first()
@@ -1811,7 +1810,7 @@ def korapay_webhook():
             amount = data['data']['amount']
             
             # Import models here
-            from models import User, CreditTransaction
+            from app.models import User, CreditTransaction
             
             # Find pending transaction
             transaction = CreditTransaction.query.filter_by(
@@ -1852,7 +1851,7 @@ def korapay_webhook():
             reference = data['data']['reference']
             
             # Import models here
-            from models import CreditTransaction
+            from app.models import CreditTransaction
             
             # Update transaction status
             transaction = CreditTransaction.query.filter_by(
@@ -1881,7 +1880,7 @@ def verify_payment(reference):
         
         if result['success']:
             # Import models here
-            from models import CreditTransaction
+            from app.models import CreditTransaction
             
             # Check our database
             transaction = CreditTransaction.query.filter_by(
@@ -1922,7 +1921,7 @@ def deduct_credits():
             return jsonify({'error': 'Email required'}), 400
         
         # Import models here
-        from models import User, CreditTransaction
+        from app.models import User, CreditTransaction
         
         user = User.query.filter_by(email=user_email).first()
         if not user:
@@ -1968,7 +1967,7 @@ def deduct_credits():
 def websocket_info():
     """Get WebSocket connection information"""
     try:
-        from websocket_service import get_active_connections_count, get_user_connection_status
+        from app.websocket_service import get_active_connections_count, get_user_connection_status
         
         user_id = request.current_user['id']
         

@@ -9,7 +9,7 @@ import subprocess
 import json
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from models import db, APIKey
+from app.models import db, APIKey
 from dotenv import load_dotenv
 import uuid
 
@@ -142,7 +142,7 @@ def create_sample_data():
             }
         ]
         
-        from models import Channel
+        from app.models import Channel
         
         for channel_data in sample_channels:
             existing = session.query(Channel).filter_by(channel_id=channel_data['channel_id']).first()

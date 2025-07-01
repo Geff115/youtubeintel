@@ -157,19 +157,19 @@ class User(db.Model):
     
     def set_password(self, password: str):
         """Set user password (hashed)"""
-        from auth import auth_service
+        from app.auth import auth_service
         self.password_hash = auth_service.hash_password(password)
     
     def verify_password(self, password: str) -> bool:
         """Verify user password"""
         if not self.password_hash:
             return False
-        from auth import auth_service
+        from app.auth import auth_service
         return auth_service.verify_password(password, self.password_hash)
     
     def generate_reset_token(self):
         """Generate password reset token"""
-        from auth import auth_service
+        from app.auth import auth_service
         from datetime import timedelta, datetime
         self.reset_token = auth_service.generate_reset_token()
         self.reset_token_expires = datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
@@ -177,7 +177,7 @@ class User(db.Model):
     
     def generate_verification_token(self):
         """Generate email verification token"""
-        from auth import auth_service
+        from app.auth import auth_service
         from datetime import timedelta, datetime
         self.verification_token = auth_service.generate_reset_token()
         self.verification_token_expires = datetime.utcnow() + timedelta(hours=24)  # 24 hour expiry

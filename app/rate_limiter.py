@@ -9,7 +9,7 @@ import time
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify, g
-from redis_config import get_redis_connection
+from app.redis_config import get_redis_connection
 import logging
 
 logger = logging.getLogger(__name__)
@@ -260,7 +260,7 @@ def rate_limit(credits_cost: int = 0, limit_type: str = 'requests'):
             user_id = request.current_user['id']
             
             # Get user plan from database
-            from models import User
+            from app.models import User
             user = User.query.get(user_id)
             if not user:
                 return jsonify({'error': 'User not found'}), 404
@@ -327,7 +327,7 @@ def rate_limit(credits_cost: int = 0, limit_type: str = 'requests'):
                     )
                     
                     # Log API usage
-                    from models import APIUsageLog, db
+                    from app.models import APIUsageLog, db
                     api_log = APIUsageLog(
                         user_id=user.id,
                         endpoint=endpoint,

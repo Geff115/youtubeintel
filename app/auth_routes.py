@@ -7,10 +7,10 @@ from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
 import uuid
 import logging
-from auth import auth_service, validate_input, token_required
-from rate_limiter import rate_limit
-from models import User, UserSession, db
-from email_service import EmailService
+from app.auth import auth_service, validate_input, token_required
+from app.rate_limiter import rate_limit
+from app.models import User, UserSession, db
+from app.email_service import EmailService
 
 logger = logging.getLogger(__name__)
 
@@ -670,7 +670,7 @@ def get_current_user():
 @auth_bp.route('/sessions', methods=['GET'])
 def get_user_sessions():
     """Get user's active sessions"""
-    from auth import token_required
+    from app.auth import token_required
     
     @token_required
     def _get_sessions():
@@ -696,7 +696,7 @@ def get_user_sessions():
 @auth_bp.route('/sessions/<session_id>', methods=['DELETE'])
 def revoke_session(session_id):
     """Revoke a specific session"""
-    from auth import token_required
+    from app.auth import token_required
     
     @token_required
     def _revoke_session():
@@ -733,7 +733,7 @@ def revoke_session(session_id):
 )
 def change_password():
     """Change user password"""
-    from auth import token_required
+    from app.auth import token_required
     
     @token_required
     def _change_password():

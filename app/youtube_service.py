@@ -6,7 +6,7 @@ from googleapiclient.errors import HttpError
 import random
 import time
 from typing import List, Dict, Optional
-from models import APIKey
+from app.models import APIKey
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
