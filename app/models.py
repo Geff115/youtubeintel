@@ -1,4 +1,4 @@
-from database import db
+from app.database import db
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy import Column, String, Integer, BigInteger, Boolean, Text, DateTime, Float, Date, ForeignKey
 from sqlalchemy.orm import relationship
