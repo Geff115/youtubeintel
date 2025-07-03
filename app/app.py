@@ -54,7 +54,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 # CORS configuration - MUST come immediately after app creation
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://localhost:3000", "https://youtubeintel-frontend.vercel.app"],
+        "origins": ["http://localhost:3000", "https://youtubeintel-frontend.vercel.app", "http://localhost:5000"],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"],
         "supports_credentials": True
@@ -2075,12 +2075,12 @@ def internal_error(error):
     db.session.rollback()
     return jsonify({'error': 'Internal server error'}), 500
 
-#if __name__ == '__main__':
+if __name__ == '__main__':
     # Use socketio.run instead of app.run for WebSocket support
-    #socketio.run(
-        #app,
-        #host='0.0.0.0',
-        #port=int(os.getenv('PORT', 5000)),
-        #debug=True,
-        #allow_unsafe_werkzeug=True
-    #)
+    socketio.run(
+        app,
+        host='0.0.0.0',
+        port=int(os.getenv('PORT', 5000)),
+        debug=True,
+        allow_unsafe_werkzeug=True
+    )

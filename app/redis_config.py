@@ -9,41 +9,43 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_redis_config():
-    """Get Redis configuration based on environment"""
-    environment = os.getenv('ENVIRONMENT', 'development')
+    """Establishes and returns a Redis connection based on the environment."""
     
-    # First, always try UPSTASH if credentials are available
+    # First, always try UPSTASH if the URL is available
     upstash_url = os.getenv('UPSTASH_REDIS_URL')
-    upstash_token = os.getenv('UPSTASH_REDIS_REST_TOKEN')
     
-    if upstash_url and upstash_token and upstash_url != 'your_upstash_redis_url_here':
-        print(f"🌐 Using UPSTASH Redis (credentials found)")
+    if upstash_url and upstash_url != 'your_upstash_redis_url_here':
+        print("🌐 Using UPSTASH Redis")
+        # Ensure the URL starts with rediss:// for SSL connections
+        if not upstash_url.startswith('rediss://'):
+            upstash_url = 'rediss://' + upstash_url.split('://', 1)[-1]
         
-        try:
-            # UPSTASH Redis configuration - simplified for better compatibility
-            import urllib.parse
-            parsed = urllib.parse.urlparse(upstash_url)
-            
-            # For UPSTASH, we need to be more careful with SSL and connection settings
-            return {
-                'host': parsed.hostname,
-                'port': 31889,
-                'password': upstash_token,
-                'ssl': True,  # UPSTASH requires SSL
-                'ssl_cert_reqs': None,  # Don't verify SSL certificates
-                'ssl_check_hostname': False,  # Don't check hostname
-                'decode_responses': True,
-                'socket_connect_timeout': 15,  # Longer timeout for cloud connection
-                'socket_timeout': 15,
-                'retry_on_timeout': True,
-            }
-        except Exception as e:
-            print(f"⚠️  Failed to parse UPSTASH URL, falling back to local: {e}")
-            return get_local_redis_config()
+        redis_url = upstash_url
     else:
-        # Use local Redis
-        print(f"🏠 Using local Redis (no UPSTASH credentials or development mode)")
-        return get_local_redis_config()
+        # Fallback to local Redis
+        print("🏠 Using local Redis")
+        redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+
+    try:
+        # Use from_url which correctly handles all connection parameters including SSL for rediss://
+        # Add a longer timeout for cloud environments
+        r = redis.from_url(
+            redis_url,
+            decode_responses=True,
+            socket_connect_timeout=20, # Increased timeout
+            retry_on_timeout=True
+        )
+        # Test connection
+        r.ping()
+        print("✅ Redis connection successful")
+        return r
+    except redis.exceptions.ConnectionError as e:
+        print(f"❌ Redis connection failed: {e}")
+        # Raising the exception will stop the app from starting with a bad connection
+        raise
+    except Exception as e:
+        print(f"❌ An unexpected error occurred during Redis connection: {e}")
+        raise
 
 def get_local_redis_config():
     """Get local Redis configuration"""
